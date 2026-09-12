@@ -1,0 +1,57 @@
+[
+  {
+    "id": "TLT-000001",
+    "no": 1,
+    "name": "Iko siswono",
+    "address": "condong",
+    "amount": 500000,
+    "dateInput": "12/09/2026",
+    "timeInput": "06.42 WIB",
+    "createdAt": "2026-09-11T23:42:41.582Z",
+    "updatedAt": "2026-09-11T23:42:41.582Z"
+  },
+  {
+    "id": "TLT-000002",
+    "no": 2,
+    "name": "Waryono",
+    "address": "Langgen wetan",
+    "amount": 100000,
+    "dateInput": "12/09/2026",
+    "timeInput": "06.46 WIB",
+    "createdAt": "2026-09-11T23:46:21.409Z",
+    "updatedAt": "2026-09-11T23:46:21.409Z"
+  },
+  {
+    "id": "TLT-000003",
+    "no": 3,
+    "name": "Rini agustini",
+    "address": "Bongas",
+    "amount": 100000,
+    "dateInput": "12/09/2026",
+    "timeInput": "06.51 WIB",
+    "createdAt": "2026-09-11T23:51:33.591Z",
+    "updatedAt": "2026-09-12T01:19:13.039Z"
+  },
+  {
+    "id": "TLT-000004",
+    "no": 4,
+    "name": "Linda",
+    "address": "Condong",
+    "amount": 250000,
+    "dateInput": "12/09/2026",
+    "timeInput": "21.52 WIB",
+    "createdAt": "2026-09-12T14:52:49.825Z",
+    "updatedAt": "2026-09-12T14:53:21.617Z"
+  },
+  {
+    "id": "TLT-000005",
+    "no": 5,
+    "name": "Sudeni",
+    "address": "Condong",
+    "amount": 25000,
+    "dateInput": "12/09/2026",
+    "timeInput": "22.27 WIB",
+    "createdAt": "2026-09-12T15:27:11.753Z",
+    "updatedAt": "2026-09-12T15:27:11.753Z"
+  }
+]

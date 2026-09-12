@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .light-card {
+    background-color: #ffffff;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  }
+  .light-card-hover {
+    transition: all 0.2s ease-in-out;
+  }
+  .light-card-hover:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  }
+}
+
+/* Clean A4 Print Layout */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print,
+  nav,
+  header,
+  #input-telitian-section,
+  #action-buttons-bar,
+  .action-col,
+  button,
+  .toast-container {
+    display: none !important;
+  }
+  #printable-table-area {
+    display: block !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  #printable-table-area * {
+    color: #000000 !important;
+    border-color: #cbd5e1 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "TLT-000001",
+    "no": 1,
+    "name": "Drs. H. Ahmad Sudirman, M.Si.",
+    "address": "Jalan Melati No. 12, Indramayu",
+    "amount": 500000,
+    "dateInput": "11/09/2026",
+    "timeInput": "22.57 WIB",
+    "createdAt": "2026-09-11T15:57:58.245Z",
+    "updatedAt": "2026-09-11T15:57:58.245Z"
+  }
+]

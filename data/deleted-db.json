@@ -1,0 +1,26 @@
+[
+  {
+    "id": "TLT-000001",
+    "no": 1,
+    "name": "Bapak H. Ahmad Santoso (Keluarga)",
+    "address": "Jl. Mawar No. 12, RT 03/05",
+    "amount": 300000,
+    "dateInput": "11/09/2026",
+    "timeInput": "23:23 WIB",
+    "createdAt": "2026-09-11T16:23:49.354Z",
+    "updatedAt": "2026-09-11T16:24:24.335Z",
+    "deletedAt": "2026-09-11T16:24:32.504Z"
+  },
+  {
+    "id": "TLT-000001",
+    "no": 1,
+    "name": "Uji Sinkronisasi Gibran",
+    "address": "Sleman, Yogyakarta",
+    "amount": 250000,
+    "dateInput": "12/09/2026",
+    "timeInput": "06.40 WIB",
+    "createdAt": "2026-09-11T23:40:04.185Z",
+    "updatedAt": "2026-09-11T23:40:04.185Z",
+    "deletedAt": "2026-09-11T23:40:17.587Z"
+  }
+]

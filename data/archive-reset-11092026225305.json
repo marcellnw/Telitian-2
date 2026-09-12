@@ -1,0 +1,13 @@
+[
+  {
+    "id": "TLT-000001",
+    "no": 1,
+    "name": "H. Bambang Sutrisno",
+    "address": "RT 03 RW 02 Karanganyar",
+    "amount": 250000,
+    "dateInput": "11/09/2026",
+    "timeInput": "22.52 WIB",
+    "createdAt": "2026-09-11T15:52:59.658Z",
+    "updatedAt": "2026-09-11T15:52:59.658Z"
+  }
+]
