@@ -28,6 +28,7 @@ interface LaporanViewProps {
   onRestoreData?: (records: TelitianRecord[]) => void;
   onOpenReset?: () => void;
   isAdmin?: boolean;
+  onOpenGoogleDriveSheets?: () => void;
 }
 
 export const LaporanView: React.FC<LaporanViewProps> = ({
@@ -39,6 +40,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
   onRestoreData,
   onOpenReset,
   isAdmin = false,
+  onOpenGoogleDriveSheets,
 }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -266,7 +268,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
       <div className="rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 p-4 shadow-2xs space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-900">
-            Sinkronisasi Google Sheets
+            Sinkronisasi Google Sheets (GAS)
           </h3>
           <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -290,6 +292,36 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
           <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'}</span>
         </button>
       </div>
+
+      {/* Direct Google Drive & Google Sheets Integration */}
+      {onOpenGoogleDriveSheets && (
+        <div className="rounded-xl sm:rounded-2xl bg-white border border-emerald-200 p-4 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Google Drive &amp; Sheets</h3>
+                <p className="text-xs text-slate-500">Integrasi Langsung Akun Google Anda</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Hubungkan akun Google Anda untuk membuat file spreadsheet baru otomatis di Drive, menyinkronkan data langsung, atau menyimpan cadangan JSON di cloud.
+          </p>
+
+          <button
+            type="button"
+            onClick={onOpenGoogleDriveSheets}
+            className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 text-xs font-bold transition-colors cursor-pointer shadow-xs"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Buka Menu Google Drive &amp; Sheets</span>
+          </button>
+        </div>
+      )}
 
       {/* Cadangan JSON Lokal (Offline Safe) */}
       <div className="rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 p-4 shadow-2xs space-y-3">

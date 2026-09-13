@@ -11,6 +11,7 @@ import {
   Wifi,
   WifiOff,
   RefreshCw,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -19,6 +20,7 @@ interface HeaderProps {
   onGoToLaporan?: () => void;
   onOpenSettings?: () => void;
   onOpenTentang?: () => void;
+  onOpenGoogleDriveSheets?: () => void;
   isOnline?: boolean;
   isAdmin?: boolean;
   onOpenLogin?: () => void;
@@ -39,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   onGoToLaporan,
   onOpenSettings,
   onOpenTentang,
+  onOpenGoogleDriveSheets,
   isOnline = true,
   isAdmin = false,
   onOpenLogin,
@@ -156,7 +159,19 @@ export const Header: React.FC<HeaderProps> = ({
                   <span>Backup &amp; Export</span>
                 </button>
 
-                {/* 3. Laporan */}
+                {/* 3. Google Drive & Sheets */}
+                {onOpenGoogleDriveSheets && (
+                  <button
+                    type="button"
+                    onClick={() => handleAction(onOpenGoogleDriveSheets)}
+                    className="w-full flex items-center gap-3 px-3 h-11 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-50 active:bg-slate-100 text-sm font-medium transition-colors cursor-pointer text-left"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Google Drive &amp; Sheets</span>
+                  </button>
+                )}
+
+                {/* 4. Laporan */}
                 <button
                   type="button"
                   onClick={() => handleAction(onGoToLaporan)}

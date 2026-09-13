@@ -12,6 +12,7 @@ import { ResetModal } from './components/ResetModal';
 import { SettingsModal } from './components/SettingsModal';
 import { TentangModal } from './components/TentangModal';
 import { GoogleScriptModal } from './components/GoogleScriptModal';
+import { GoogleDriveSheetsModal } from './components/GoogleDriveSheetsModal';
 import { TelitianRecord } from './types/record';
 import { exportToExcel, exportToWord } from './lib/export';
 import {
@@ -47,6 +48,7 @@ export default function App() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isTentangModalOpen, setIsTentangModalOpen] = useState(false);
   const [isGoogleScriptModalOpen, setIsGoogleScriptModalOpen] = useState(false);
+  const [isGoogleDriveSheetsModalOpen, setIsGoogleDriveSheetsModalOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Toast notification state
@@ -412,6 +414,7 @@ export default function App() {
         onGoToLaporan={() => setActiveTab('laporan')}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenTentang={() => setIsTentangModalOpen(true)}
+        onOpenGoogleDriveSheets={() => setIsGoogleDriveSheetsModalOpen(true)}
         isOnline={isOnline}
         isAdmin={isAdmin}
         onOpenLogin={() => setIsLoginModalOpen(true)}
@@ -469,6 +472,7 @@ export default function App() {
             onRestoreData={handleRestoreLocalJson}
             onOpenReset={() => setIsResetModalOpen(true)}
             isAdmin={isAdmin}
+            onOpenGoogleDriveSheets={() => setIsGoogleDriveSheetsModalOpen(true)}
           />
         )}
       </main>
@@ -540,6 +544,13 @@ export default function App() {
       <GoogleScriptModal
         isOpen={isGoogleScriptModalOpen}
         onClose={() => setIsGoogleScriptModalOpen(false)}
+      />
+
+      <GoogleDriveSheetsModal
+        isOpen={isGoogleDriveSheetsModalOpen}
+        onClose={() => setIsGoogleDriveSheetsModalOpen(false)}
+        records={records}
+        totalUang={stats.totalUang}
       />
     </div>
   );
