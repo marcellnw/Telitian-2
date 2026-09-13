@@ -72,6 +72,11 @@ export interface LocalRecord {
   timeInput: string;
   createdAt: string;
   updatedAt: string;
+  jenisTelitian?: string;
+  kategoriTamu?: string;
+  rincianBarang?: string;
+  petugas?: string;
+  statusValidasi?: string;
 }
 
 function safeReadJson<T>(filename: string, defaultValue: T): T {
@@ -225,7 +230,9 @@ interface GasConfig {
   sheetGid: string;
 }
 
-function getGasConfig(): GasConfig {
+let inMemoryGasConfig: Partial<GasConfig> | null = null;
+
+function getGasConfig(req?: express.Request): GasConfig {
   const defaultConfig: GasConfig = {
     googleAppsScriptUrl: (process.env.GOOGLE_APPS_SCRIPT_URL || '').trim(),
     appsScriptSecret: (process.env.APPS_SCRIPT_SECRET || 'telitian-gibran-secret-2026').trim(),
@@ -234,31 +241,60 @@ function getGasConfig(): GasConfig {
     sheetGid: '1699924787',
   };
 
-  const parsed = safeReadJson<Partial<GasConfig> | null>('gas-config.json', null);
-  if (parsed && typeof parsed === 'object') {
+  // 1. Cek parameter dari request header atau body (sangat berguna di Vercel Serverless tanpa file disk)
+  const reqUrl = (req?.headers?.['x-gas-url'] as string) || (req?.body?.gasUrl as string) || (req?.query?.gasUrl as string);
+  const reqSecret = (req?.headers?.['x-gas-secret'] as string) || (req?.body?.gasSecret as string) || (req?.query?.gasSecret as string);
+
+  if (reqUrl && typeof reqUrl === 'string' && reqUrl.trim().startsWith('http')) {
+    const cleanUrl = reqUrl.trim();
+    const cleanSecret = (reqSecret && typeof reqSecret === 'string' && reqSecret.trim()) ? reqSecret.trim() : defaultConfig.appsScriptSecret;
+    inMemoryGasConfig = {
+      ...defaultConfig,
+      ...inMemoryGasConfig,
+      googleAppsScriptUrl: cleanUrl,
+      appsScriptSecret: cleanSecret,
+    };
+    try {
+      safeWriteJson('gas-config.json', inMemoryGasConfig);
+    } catch (_) {}
+    return inMemoryGasConfig as GasConfig;
+  }
+
+  // 2. Cek memori proses
+  if (inMemoryGasConfig && inMemoryGasConfig.googleAppsScriptUrl) {
     return {
+      ...defaultConfig,
+      ...inMemoryGasConfig,
+    } as GasConfig;
+  }
+
+  // 3. Cek gas-config.json di storage
+  const parsed = safeReadJson<Partial<GasConfig> | null>('gas-config.json', null);
+  if (parsed && typeof parsed === 'object' && (parsed.googleAppsScriptUrl || process.env.GOOGLE_APPS_SCRIPT_URL)) {
+    inMemoryGasConfig = {
       googleAppsScriptUrl: (parsed.googleAppsScriptUrl || process.env.GOOGLE_APPS_SCRIPT_URL || '').trim(),
       appsScriptSecret: (parsed.appsScriptSecret || process.env.APPS_SCRIPT_SECRET || 'telitian-gibran-secret-2026').trim(),
       spreadsheetId: (parsed.spreadsheetId || process.env.GOOGLE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID).trim(),
       spreadsheetUrl: (parsed.spreadsheetUrl || DEFAULT_SPREADSHEET_URL).trim(),
       sheetGid: (parsed.sheetGid || '1699924787').trim(),
     };
+    return inMemoryGasConfig as GasConfig;
   }
 
   return defaultConfig;
 }
 
-function getGasUrl(): string {
-  return getGasConfig().googleAppsScriptUrl;
+function getGasUrl(req?: express.Request): string {
+  return getGasConfig(req).googleAppsScriptUrl;
 }
 
-function getGasSecret(): string {
-  return getGasConfig().appsScriptSecret;
+function getGasSecret(req?: express.Request): string {
+  return getGasConfig(req).appsScriptSecret;
 }
 
-async function callGasApi(action: string, payloadData?: any, method: 'GET' | 'POST' = 'POST'): Promise<GasResult> {
-  const gasUrl = getGasUrl();
-  const secret = getGasSecret();
+async function callGasApi(action: string, payloadData?: any, method: 'GET' | 'POST' = 'POST', req?: express.Request): Promise<GasResult> {
+  const gasUrl = getGasUrl(req);
+  const secret = getGasSecret(req);
 
   if (!gasUrl) {
     return { success: false, error: 'GOOGLE_APPS_SCRIPT_URL belum diatur. Masukkan URL Web App Google Apps Script di menu Backup & Cloud atau di file .env.' };
@@ -277,12 +313,15 @@ async function callGasApi(action: string, payloadData?: any, method: 'GET' | 'PO
     if (secret) targetUrl.searchParams.set('secret', secret);
 
     let response: Response;
+    // Gunakan timeout 9500ms agar aman dalam batas eksekusi 10s Vercel Serverless
+    const timeoutSignal = AbortSignal.timeout(9500);
+
     if (method === 'GET') {
       response = await fetch(targetUrl.toString(), {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         redirect: 'follow',
-        signal: AbortSignal.timeout(12000),
+        signal: timeoutSignal,
       });
     } else {
       response = await fetch(targetUrl.toString(), {
@@ -294,7 +333,7 @@ async function callGasApi(action: string, payloadData?: any, method: 'GET' | 'PO
           ...payloadData,
         }),
         redirect: 'follow',
-        signal: AbortSignal.timeout(12000),
+        signal: timeoutSignal,
       });
     }
 
@@ -320,7 +359,7 @@ async function callGasApi(action: string, payloadData?: any, method: 'GET' | 'PO
   }
 }
 
-async function performFullSyncWithGas(): Promise<{
+async function performFullSyncWithGas(force: boolean = false, req?: express.Request): Promise<{
   success: boolean;
   message: string;
   pulledCount: number;
@@ -329,7 +368,7 @@ async function performFullSyncWithGas(): Promise<{
   totalUang: number;
   data: LocalRecord[];
 }> {
-  const gasUrl = getGasUrl();
+  const gasUrl = getGasUrl(req);
   const activeRecords = getActiveRecords();
   if (!gasUrl) {
     return {
@@ -343,7 +382,7 @@ async function performFullSyncWithGas(): Promise<{
     };
   }
 
-  const gasData = await callGasApi('getData', {}, 'GET');
+  const gasData = await callGasApi('getData', {}, 'GET', req);
   if (!gasData || !gasData.success || !Array.isArray(gasData.data)) {
     throw new Error(gasData?.error || 'Gagal mengambil data dari Google Sheets. Pastikan Web App diset ke "Anyone".');
   }
@@ -396,7 +435,7 @@ async function performFullSyncWithGas(): Promise<{
   let pushedCount = 0;
   if (toPushToGas.length > 0) {
     try {
-      const pushRes = await callGasApi('batchCreateData', { records: toPushToGas });
+      const pushRes = await callGasApi('batchCreateData', { records: toPushToGas }, 'POST', req);
       if (pushRes && pushRes.success) {
         pushedCount = toPushToGas.length;
       }
@@ -445,12 +484,12 @@ async function performFullSyncWithGas(): Promise<{
   };
 }
 
-async function syncWithGas(force = false): Promise<boolean> {
-  const gasUrl = getGasUrl();
+async function syncWithGas(force = false, req?: express.Request): Promise<boolean> {
+  const gasUrl = getGasUrl(req);
   if (!gasUrl) return false;
 
   try {
-    const res = await performFullSyncWithGas();
+    const res = await performFullSyncWithGas(force, req);
     return res.success;
   } catch (err) {
     return false;
@@ -496,10 +535,11 @@ function requireAdmin(req: express.Request, res: express.Response, next: express
 // ----------------------------------------------------
 // API ROUTES
 // ----------------------------------------------------
+const apiRoute = (p: string) => [p, p.replace(/^\/api/, '')];
 
 // 1. Health check & status
-app.get('/api/health', (req, res) => {
-  const cfg = getGasConfig();
+app.get(apiRoute('/api/health'), (req, res) => {
+  const cfg = getGasConfig(req);
   const hasGasUrl = !!cfg.googleAppsScriptUrl;
   res.json({
     status: 'ok',
@@ -511,7 +551,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // 2. Stats
-app.get('/api/stats', (req, res) => {
+app.get(apiRoute('/api/stats'), (req, res) => {
   const records = getActiveRecords();
   const totalUang = records.reduce((acc, cur) => acc + (cur.amount || 0), 0);
   const lastRecord = records[records.length - 1];
@@ -524,9 +564,9 @@ app.get('/api/stats', (req, res) => {
 });
 
 // 3. GAS status test
-app.get('/api/gas/status', async (req, res) => {
+app.get(apiRoute('/api/gas/status'), async (req, res) => {
   try {
-    const cfg = getGasConfig();
+    const cfg = getGasConfig(req);
     const gasUrl = cfg.googleAppsScriptUrl;
 
     if (!gasUrl) {
@@ -539,7 +579,7 @@ app.get('/api/gas/status', async (req, res) => {
       });
     }
 
-    let result = await callGasApi('ping', {}, 'GET');
+    let result = await callGasApi('ping', {}, 'GET', req);
     if (result.success) {
       return res.json({
         configured: true,
@@ -554,7 +594,7 @@ app.get('/api/gas/status', async (req, res) => {
     }
 
     if (result.error === 'Unknown action' || result.message === 'Unknown action') {
-      const testGetData = await callGasApi('getData', {}, 'GET');
+      const testGetData = await callGasApi('getData', {}, 'GET', req);
       if (testGetData.success) {
         return res.json({
           configured: true,
@@ -587,8 +627,8 @@ app.get('/api/gas/status', async (req, res) => {
 });
 
 // 4. GAS config read & write
-app.get('/api/gas/config', (req, res) => {
-  const cfg = getGasConfig();
+app.get(apiRoute('/api/gas/config'), (req, res) => {
+  const cfg = getGasConfig(req);
   res.json({
     success: true,
     configured: !!cfg.googleAppsScriptUrl,
@@ -600,10 +640,10 @@ app.get('/api/gas/config', (req, res) => {
   });
 });
 
-app.post('/api/gas/config', async (req, res) => {
+app.post(apiRoute('/api/gas/config'), async (req, res) => {
   try {
     const { googleAppsScriptUrl, appsScriptSecret, spreadsheetUrl } = req.body;
-    const current = getGasConfig();
+    const current = getGasConfig(req);
     const updated: GasConfig = {
       ...current,
       googleAppsScriptUrl: typeof googleAppsScriptUrl === 'string' ? googleAppsScriptUrl.trim() : current.googleAppsScriptUrl,
@@ -615,9 +655,9 @@ app.post('/api/gas/config', async (req, res) => {
 
     let testRes: GasResult = { success: false, message: '' };
     if (updated.googleAppsScriptUrl) {
-      testRes = await callGasApi('ping', {}, 'GET');
+      testRes = await callGasApi('ping', {}, 'GET', req);
       if (!testRes.success && (testRes.error === 'Unknown action' || testRes.message === 'Unknown action')) {
-        testRes = await callGasApi('getData', {}, 'GET');
+        testRes = await callGasApi('getData', {}, 'GET', req);
       }
     }
 
@@ -637,7 +677,7 @@ app.post('/api/gas/config', async (req, res) => {
 });
 
 // 5. Auth routes
-app.post('/api/auth/login', (req, res) => {
+app.post(apiRoute('/api/auth/login'), (req, res) => {
   const { password } = req.body;
   const configuredPassword = process.env.ADMIN_PASSWORD || 'adminhajatan';
 
@@ -655,12 +695,12 @@ app.post('/api/auth/login', (req, res) => {
   return res.json({ success: true, message: 'Login berhasil' });
 });
 
-app.post('/api/auth/logout', (req, res) => {
+app.post(apiRoute('/api/auth/logout'), (req, res) => {
   res.clearCookie('admin_session');
   res.json({ success: true, message: 'Logout berhasil' });
 });
 
-app.get('/api/auth/me', (req, res) => {
+app.get(apiRoute('/api/auth/me'), (req, res) => {
   const isAuthCookie = req.cookies?.admin_session === 'authenticated';
   const configuredPassword = process.env.ADMIN_PASSWORD || 'adminhajatan';
   const authHeader = req.headers.authorization;
@@ -671,7 +711,7 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 // 6. Realtime streams & poll
-app.get('/api/records/stream', (req, res) => {
+app.get(apiRoute('/api/records/stream'), (req, res) => {
   const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
   const active = getActiveRecords();
   const totalUang = active.reduce((acc, cur) => acc + (cur.amount || 0), 0);
@@ -724,7 +764,7 @@ app.get('/api/records/stream', (req, res) => {
   });
 });
 
-app.get('/api/records/poll', (req, res) => {
+app.get(apiRoute('/api/records/poll'), (req, res) => {
   const clientVersion = req.query.version;
   const active = getActiveRecords();
   const totalUang = active.reduce((acc, cur) => acc + (cur.amount || 0), 0);
@@ -750,8 +790,8 @@ app.get('/api/records/poll', (req, res) => {
 });
 
 // 7. Records: GET, POST, PUT, DELETE
-app.get('/api/records', async (req, res) => {
-  const gasUrl = getGasUrl();
+app.get(apiRoute('/api/records'), async (req, res) => {
+  const gasUrl = getGasUrl(req);
   const active = getActiveRecords();
 
   if (req.query.sync === 'true' || active.length === 0) {
@@ -774,7 +814,7 @@ app.get('/api/records', async (req, res) => {
   });
 });
 
-app.post('/api/records', async (req, res) => {
+app.post(apiRoute('/api/records'), async (req, res) => {
   const body = req.body || {};
   const name = body.name || body.nama;
   const address = body.address !== undefined ? body.address : (body.alamat || '');
@@ -817,24 +857,35 @@ app.post('/api/records', async (req, res) => {
     timeInput,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
+    jenisTelitian: body.jenisTelitian || 'Telitian Dewasa',
+    kategoriTamu: body.kategoriTamu || 'Umum',
+    rincianBarang: body.rincianBarang || 'Amplop Uang',
+    petugas: body.petugas || 'Panitia Meja',
+    statusValidasi: body.statusValidasi || 'Valid',
   };
 
   currentRecords.push(newRecord);
   updateActiveRecords(currentRecords, 'create', newRecord);
   logServerActivity('Tambah Data', id, cleanName, `Nominal: Rp ${numAmount.toLocaleString('id-ID')}`);
 
-  const gasUrl = getGasUrl();
+  const gasUrl = getGasUrl(req);
   if (gasUrl) {
     try {
-      const gasResult = await callGasApi('createData', {
-        data: {
-          name: cleanName,
-          address: cleanAddress,
-          amount: numAmount,
-          dateInput,
-          timeInput,
+      const gasResult = await callGasApi(
+        'createData',
+        {
+          data: {
+            id,
+            name: cleanName,
+            address: cleanAddress,
+            amount: numAmount,
+            dateInput,
+            timeInput,
+          },
         },
-      });
+        'POST',
+        req
+      );
 
       if (gasResult && gasResult.success) {
         return res.json({
@@ -842,6 +893,7 @@ app.post('/api/records', async (req, res) => {
           message: 'Data berhasil disimpan ke Google Sheets.',
           record: gasResult.record || newRecord,
           source: 'google_sheets',
+          googleSheetsSynced: true,
         });
       }
     } catch (err) {
@@ -851,13 +903,14 @@ app.post('/api/records', async (req, res) => {
 
   return res.json({
     success: true,
-    message: 'Data berhasil disimpan.',
+    message: 'Data berhasil disimpan di lokal server.',
     record: newRecord,
     source: 'local_database',
+    googleSheetsSynced: false,
   });
 });
 
-app.put('/api/records/:id', requireAdmin, async (req, res) => {
+app.put(apiRoute('/api/records/:id'), requireAdmin, async (req, res) => {
   const { id } = req.params;
   const body = req.body || {};
   const name = body.name || body.nama;
@@ -890,6 +943,11 @@ app.put('/api/records/:id', requireAdmin, async (req, res) => {
     records[index].address = cleanAddress;
     records[index].amount = numAmount;
     records[index].updatedAt = now;
+    if (body.jenisTelitian !== undefined) records[index].jenisTelitian = body.jenisTelitian;
+    if (body.kategoriTamu !== undefined) records[index].kategoriTamu = body.kategoriTamu;
+    if (body.rincianBarang !== undefined) records[index].rincianBarang = body.rincianBarang;
+    if (body.petugas !== undefined) records[index].petugas = body.petugas;
+    if (body.statusValidasi !== undefined) records[index].statusValidasi = body.statusValidasi;
     updatedRecord = records[index];
     updateActiveRecords(records, 'update', records[index]);
     logServerActivity('Edit Data', id, cleanName, `Nominal baru: Rp ${numAmount.toLocaleString('id-ID')}`);
@@ -914,13 +972,18 @@ app.put('/api/records/:id', requireAdmin, async (req, res) => {
   }
 
   let gasSynced = false;
-  const gasUrl = getGasUrl();
+  const gasUrl = getGasUrl(req);
   if (gasUrl) {
     try {
-      const gasRes = await callGasApi('updateData', {
-        id,
-        data: { name: cleanName, address: cleanAddress, amount: numAmount },
-      });
+      const gasRes = await callGasApi(
+        'updateData',
+        {
+          id,
+          data: { name: cleanName, address: cleanAddress, amount: numAmount },
+        },
+        'POST',
+        req
+      );
       gasSynced = !!gasRes?.success;
     } catch (_) {}
   }
@@ -933,7 +996,7 @@ app.put('/api/records/:id', requireAdmin, async (req, res) => {
   });
 });
 
-app.delete('/api/records/:id', requireAdmin, async (req, res) => {
+app.delete(apiRoute('/api/records/:id'), requireAdmin, async (req, res) => {
   const { id } = req.params;
   const records = getLocalRecords();
   let targetIndex = records.findIndex((r) => r.id === id);
@@ -965,13 +1028,18 @@ app.delete('/api/records/:id', requireAdmin, async (req, res) => {
   logServerActivity('Hapus Data', target.id, target.name, `Nominal: Rp ${target.amount.toLocaleString('id-ID')}`);
 
   let gasDeleted = false;
-  const gasUrl = getGasUrl();
+  const gasUrl = getGasUrl(req);
   if (gasUrl) {
     try {
-      const gasRes = await callGasApi('deleteData', {
-        id: target.id,
-        deletedBy: 'Operator Meja Telitian',
-      });
+      const gasRes = await callGasApi(
+        'deleteData',
+        {
+          id: target.id,
+          deletedBy: 'Operator Meja Telitian',
+        },
+        'POST',
+        req
+      );
       gasDeleted = !!gasRes?.success;
     } catch (_) {}
   }
@@ -984,10 +1052,10 @@ app.delete('/api/records/:id', requireAdmin, async (req, res) => {
 });
 
 // 8. Reset database mulai dari 0
-app.post('/api/records/reset', requireAdmin, async (req, res) => {
+app.post(apiRoute('/api/records/reset'), requireAdmin, async (req, res) => {
   try {
     const currentRecords = getLocalRecords();
-    const gasUrl = getGasUrl();
+    const gasUrl = getGasUrl(req);
     const reason = req.body?.reason || 'Mulai dari 0';
 
     if (currentRecords.length > 0) {
@@ -1017,7 +1085,7 @@ app.post('/api/records/reset', requireAdmin, async (req, res) => {
     let gasResetResult: GasResult | null = null;
     if (gasUrl) {
       try {
-        gasResetResult = await callGasApi('resetData', { reason });
+        gasResetResult = await callGasApi('resetData', { reason }, 'POST', req);
       } catch (gasErr) {
         console.warn('GAS reset error:', gasErr);
       }
@@ -1040,7 +1108,7 @@ app.post('/api/records/reset', requireAdmin, async (req, res) => {
 });
 
 // 9. Sync offline records
-app.post('/api/records/sync-offline', async (req, res) => {
+app.post(apiRoute('/api/records/sync-offline'), async (req, res) => {
   try {
     const { records: pendingRecords } = req.body;
 
@@ -1049,7 +1117,7 @@ app.post('/api/records/sync-offline', async (req, res) => {
     }
 
     const currentRecords = getLocalRecords();
-    const gasUrl = getGasUrl();
+    const gasUrl = getGasUrl(req);
     const addedRecords: LocalRecord[] = [];
 
     for (const item of pendingRecords) {
@@ -1099,9 +1167,11 @@ app.post('/api/records/sync-offline', async (req, res) => {
     updateActiveRecords(currentRecords, 'sync_offline');
     logServerActivity('Sync Offline', 'BATCH', 'System', `${addedRecords.length} data offline berhasil disinkronkan`);
 
+    let gasSynced = false;
     if (gasUrl && addedRecords.length > 0) {
       try {
-        await callGasApi('batchCreateData', { records: addedRecords });
+        const gasRes = await callGasApi('batchCreateData', { records: addedRecords }, 'POST', req);
+        gasSynced = !!(gasRes && gasRes.success);
       } catch (e) {
         console.warn('GAS batchCreateData error:', e);
       }
@@ -1111,7 +1181,10 @@ app.post('/api/records/sync-offline', async (req, res) => {
 
     return res.json({
       success: true,
-      message: `${addedRecords.length} data offline berhasil disinkronkan ke server.`,
+      message: gasSynced
+        ? `100% Berhasil! ${addedRecords.length} data offline berhasil disinkronkan ke Google Sheets.`
+        : `${addedRecords.length} data offline berhasil dicatat di server lokal.`,
+      googleSheetsSynced: gasSynced,
       count: addedRecords.length,
       data: currentRecords,
       totalData: currentRecords.length,
@@ -1127,14 +1200,14 @@ app.post('/api/records/sync-offline', async (req, res) => {
 });
 
 // 10. Restore JSON
-app.post('/api/records/restore-json', requireAdmin, async (req, res) => {
+app.post(apiRoute('/api/records/restore-json'), requireAdmin, async (req, res) => {
   try {
     const { records: restoredList } = req.body;
     if (!Array.isArray(restoredList) || restoredList.length === 0) {
       return res.status(400).json({ success: false, error: 'Data JSON tidak valid atau kosong' });
     }
 
-    const gasUrl = getGasUrl();
+    const gasUrl = getGasUrl(req);
     const cleanList: LocalRecord[] = restoredList.map((item: any, idx: number) => {
       const numAmount = Math.max(0, parseInt(item.amount !== undefined ? item.amount : item.jumlah, 10) || 0);
       return {
@@ -1154,7 +1227,7 @@ app.post('/api/records/restore-json', requireAdmin, async (req, res) => {
     logServerActivity('Pulihkan Data', 'BATCH', 'Admin', `Memulihkan ${cleanList.length} data dari cadangan JSON`);
 
     if (gasUrl) {
-      callGasApi('batchCreateData', { records: cleanList }).catch(() => {});
+      callGasApi('batchCreateData', { records: cleanList }, 'POST', req).catch(() => {});
     }
 
     return res.json({
@@ -1170,7 +1243,7 @@ app.post('/api/records/restore-json', requireAdmin, async (req, res) => {
 });
 
 // 11. Sync batch for syncEngine
-app.post(['/api/sync/batch', '/api/sync'], async (req, res) => {
+app.post([...apiRoute('/api/sync/batch'), ...apiRoute('/api/sync')], async (req, res) => {
   try {
     const body = req.body || {};
     const items = body.items || [];
@@ -1231,8 +1304,8 @@ app.post(['/api/sync/batch', '/api/sync'], async (req, res) => {
 });
 
 // 12. Manual trigger sync now
-app.all('/api/gas/sync-now', async (req, res) => {
-  const gasUrl = getGasUrl();
+app.all(apiRoute('/api/gas/sync-now'), async (req, res) => {
+  const gasUrl = getGasUrl(req);
   if (!gasUrl) {
     return res.status(400).json({
       success: false,
@@ -1241,7 +1314,7 @@ app.all('/api/gas/sync-now', async (req, res) => {
   }
 
   try {
-    const syncResult = await performFullSyncWithGas();
+    const syncResult = await performFullSyncWithGas(false, req);
     return res.json(syncResult);
   } catch (err: any) {
     return res.status(500).json({
@@ -1252,7 +1325,7 @@ app.all('/api/gas/sync-now', async (req, res) => {
 });
 
 // 13. Apps Script Code.gs content
-app.get('/api/gas/code', (req, res) => {
+app.get(apiRoute('/api/gas/code'), (req, res) => {
   try {
     const codePath = path.join(process.cwd(), 'Code.gs');
     if (fs.existsSync(codePath)) {
@@ -1264,8 +1337,8 @@ app.get('/api/gas/code', (req, res) => {
 });
 
 // 14. Manual backup trigger
-app.post('/api/backup', async (req, res) => {
-  const gasUrl = getGasUrl();
+app.post(apiRoute('/api/backup'), async (req, res) => {
+  const gasUrl = getGasUrl(req);
   const now = new Date();
   const timestamp = new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
@@ -1287,7 +1360,7 @@ app.post('/api/backup', async (req, res) => {
 
   if (gasUrl) {
     try {
-      const gasResult = await callGasApi('backup', {});
+      const gasResult = await callGasApi('backup', {}, 'POST', req);
       if (gasResult && gasResult.success) {
         return res.json({
           success: true,
@@ -1307,7 +1380,7 @@ app.post('/api/backup', async (req, res) => {
 });
 
 // 15. Realtime Excel export (.xlsx)
-app.get('/api/export/excel', (req, res) => {
+app.get(apiRoute('/api/export/excel'), (req, res) => {
   try {
     const records = getLocalRecords();
     const totalUang = records.reduce((acc, cur) => acc + (cur.amount || 0), 0);

@@ -10,6 +10,11 @@ export interface TelitianRecord {
   timeInput: string;
   createdAt: string;
   updatedAt: string;
+  jenisTelitian?: string;
+  kategoriTamu?: string;
+  rincianBarang?: string;
+  petugas?: string;
+  statusValidasi?: string;
   syncStatus?: RecordSyncStatus;
   isOffline?: boolean;
 }

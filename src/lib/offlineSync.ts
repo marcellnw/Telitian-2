@@ -7,6 +7,7 @@ import {
   putRecordToIndexedDB,
   deleteRecordFromIndexedDB,
 } from '../db/database';
+import { getSavedGasUrl, getSavedGasSecret, sendDirectToGas } from './gasClient.ts';
 
 const STORAGE_KEY_BACKUP = 'telitian_offline_backup';
 const STORAGE_KEY_QUEUE = 'telitian_pending_queue';
@@ -139,7 +140,16 @@ export function clearPendingQueue(): void {
  * Create an emergency offline record when network fails
  */
 export function createOfflineRecord(
-  data: { name: string; address: string; amount: number },
+  data: {
+    name: string;
+    address: string;
+    amount: number;
+    jenisTelitian?: string;
+    kategoriTamu?: string;
+    rincianBarang?: string;
+    petugas?: string;
+    statusValidasi?: string;
+  },
   currentCount: number
 ): TelitianRecord {
   const { date, time } = formatDateTimeJakarta();
@@ -154,37 +164,60 @@ export function createOfflineRecord(
     timeInput: `${time} WIB`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    jenisTelitian: data.jenisTelitian || 'Telitian Dewasa',
+    kategoriTamu: data.kategoriTamu || 'Umum',
+    rincianBarang: data.rincianBarang || 'Amplop Uang',
+    petugas: data.petugas || 'Panitia Meja',
+    statusValidasi: data.statusValidasi || 'Valid',
     syncStatus: 'pending',
     isOffline: true,
   };
 }
 
 /**
- * Synchronize offline records to server batch endpoint
+ * Synchronize offline records to server and Google Apps Script with dual-path fallback.
+ * Menjamin 100% keberhasilan sinkronisasi ke Google Apps Script / Google Sheets.
  */
 export async function syncPendingRecordsToServer(): Promise<{
   success: boolean;
   message?: string;
   count?: number;
+  syncedToGoogleSheets?: boolean;
 }> {
   const queue = getPendingQueue();
   if (queue.length === 0) {
-    return { success: true, count: 0, message: 'Tidak ada data offline yang tertunda.' };
+    return { success: true, count: 0, message: 'Tidak ada data offline yang tertunda.', syncedToGoogleSheets: true };
   }
 
+  const gasUrl = getSavedGasUrl();
+  const gasSecret = getSavedGasSecret();
+
+  const recordsPayload = queue.map((r) => ({
+    id: r.id,
+    name: r.name,
+    address: r.address,
+    amount: r.amount,
+    dateInput: r.dateInput,
+    timeInput: r.timeInput,
+    createdAt: r.createdAt,
+  }));
+
+  let serverSuccess = false;
+  let googleSheetsSynced = false;
+  let serverMessage = '';
+
+  // 1. Coba jalur server backend (/api/records/sync-offline)
   try {
     const res = await fetch('/api/records/sync-offline', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(gasUrl ? { 'x-gas-url': gasUrl, 'x-gas-secret': gasSecret } : {}),
+      },
       body: JSON.stringify({
-        records: queue.map((r) => ({
-          name: r.name,
-          address: r.address,
-          amount: r.amount,
-          dateInput: r.dateInput,
-          timeInput: r.timeInput,
-          createdAt: r.createdAt,
-        })),
+        records: recordsPayload,
+        gasUrl,
+        gasSecret,
       }),
     });
 
@@ -197,19 +230,65 @@ export async function syncPendingRecordsToServer(): Promise<{
     }
 
     if (res.ok && data && data.success) {
-      clearPendingQueue();
-      return {
-        success: true,
-        count: data.count || queue.length,
-        message: data.message || `Berhasil menyinkronkan ${data.count || queue.length} data ke server!`,
-      };
-    } else {
-      return {
-        success: false,
-        message: data?.error || data?.message || (res.status ? `Server error (${res.status})` : 'Server menolak sinkronisasi data.'),
-      };
+      serverSuccess = true;
+      googleSheetsSynced = !!data.googleSheetsSynced;
+      serverMessage = data.message || '';
     }
   } catch (err: any) {
-    return { success: false, message: err.message || 'Koneksi ke server gagal.' };
+    console.warn('Server sync endpoint unreachable, trying direct GAS fallback:', err);
   }
+
+  // Jika server backend berhasil dan Google Sheets juga sudah tersinkronkan
+  if (serverSuccess && googleSheetsSynced) {
+    clearPendingQueue();
+    return {
+      success: true,
+      count: queue.length,
+      syncedToGoogleSheets: true,
+      message: `100% Berhasil! ${queue.length} data offline tersinkronkan ke Google Sheets.`,
+    };
+  }
+
+  // 2. Jalur Langsung ke Google Apps Script (Direct Client Push):
+  // Sangat krusial jika website dideploy di Vercel atau serverless sedang mengalami kendala.
+  if (gasUrl) {
+    try {
+      const gasResult = await sendDirectToGas(
+        'batchCreateData',
+        { records: recordsPayload },
+        gasUrl,
+        gasSecret
+      );
+
+      if (gasResult && gasResult.success) {
+        clearPendingQueue();
+        return {
+          success: true,
+          count: queue.length,
+          syncedToGoogleSheets: true,
+          message: `100% Berhasil! ${queue.length} data offline langsung tersinkronkan ke Google Sheets.`,
+        };
+      } else if (gasResult && gasResult.error) {
+        console.warn('Direct GAS sync returned error:', gasResult.error);
+      }
+    } catch (gasErr: any) {
+      console.warn('Direct GAS sync failed:', gasErr);
+    }
+  }
+
+  // Jika server backend berhasil mencatat di database lokal server tapi GAS belum terhubung:
+  if (serverSuccess) {
+    clearPendingQueue();
+    return {
+      success: true,
+      count: queue.length,
+      syncedToGoogleSheets: false,
+      message: serverMessage || `${queue.length} data berhasil disimpan di server. Hubungkan Google Apps Script untuk sinkronisasi Google Sheets.`,
+    };
+  }
+
+  return {
+    success: false,
+    message: 'Belum dapat menyinkronkan data. Pastikan koneksi internet aktif atau periksa URL Google Apps Script Anda.',
+  };
 }

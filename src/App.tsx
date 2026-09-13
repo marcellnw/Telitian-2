@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Navbar } from './components/Navbar';
 import { Header } from './components/Header';
-import { StatsCards } from './components/StatsCards';
-import { InputForm } from './components/InputForm';
+import { BottomNavigation, MainTabType } from './components/BottomNavigation';
+import { DashboardView } from './components/DashboardView';
+import { InputForm, SubmitRecordPayload } from './components/InputForm';
 import { DataTable } from './components/DataTable';
+import { LaporanView } from './components/LaporanView';
 import { EditModal } from './components/EditModal';
 import { DeleteModal } from './components/DeleteModal';
 import { LoginModal } from './components/LoginModal';
 import { ResetModal } from './components/ResetModal';
-import { BackupView } from './components/BackupView';
+import { SettingsModal } from './components/SettingsModal';
+import { TentangModal } from './components/TentangModal';
+import { GoogleScriptModal } from './components/GoogleScriptModal';
 import { TelitianRecord } from './types/record';
 import { exportToExcel, exportToWord } from './lib/export';
 import {
@@ -26,7 +29,7 @@ import { getAdminHeaders } from './lib/adminAuth';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pendataan' | 'data' | 'backup'>('dashboard');
+  const [activeTab, setActiveTab] = useState<MainTabType>('dashboard');
   const [records, setRecords] = useState<TelitianRecord[]>([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState(true);
 
@@ -41,6 +44,9 @@ export default function App() {
   const [deletingRecord, setDeletingRecord] = useState<TelitianRecord | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isTentangModalOpen, setIsTentangModalOpen] = useState(false);
+  const [isGoogleScriptModalOpen, setIsGoogleScriptModalOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Toast notification state
@@ -53,12 +59,12 @@ export default function App() {
     }, 4000);
   };
 
-  // Synchronize pending offline records to server
+  // Synchronize pending offline records to server & Google Sheets
   const handleSyncOffline = useCallback(async () => {
     const pending = getPendingOfflineRecords();
     if (pending.length === 0) {
       showToast('Semua data sudah tersinkronisasi.', 'success');
-      return;
+      return { success: true };
     }
 
     try {
@@ -67,13 +73,15 @@ export default function App() {
         clearPendingQueue();
         setPendingOfflineCount(0);
         showToast(result.message || 'Data offline berhasil disinkronkan!', 'success');
-        // Refresh full record list from server
         fetchRecords();
+        return result;
       } else {
         showToast('Gagal menyinkronkan: ' + (result.message || 'Periksa koneksi'), 'error');
+        return result;
       }
     } catch (e) {
       showToast('Gagal menyinkronkan data offline ke server.', 'error');
+      return { success: false };
     }
   }, []);
 
@@ -122,7 +130,6 @@ export default function App() {
     const handleOnline = () => {
       setIsOnline(true);
       showToast('Koneksi internet terhubung kembali.', 'success');
-      // Auto-sync if there are pending offline records
       const pending = getPendingOfflineRecords();
       if (pending.length > 0) {
         handleSyncOffline();
@@ -131,7 +138,7 @@ export default function App() {
 
     const handleOffline = () => {
       setIsOnline(false);
-      showToast('Koneksi terputus. Mode offline aktif (Data tetap tersimpan aman).', 'error');
+      showToast('Koneksi terputus. Mode offline aktif (Data aman di HP).', 'error');
     };
 
     window.addEventListener('online', handleOnline);
@@ -178,8 +185,7 @@ export default function App() {
   }, [records]);
 
   // Create new record with offline resilience
-  const handleCreateRecord = async (data: { name: string; address: string; amount: number }): Promise<boolean> => {
-    // If online, try server POST
+  const handleCreateRecord = async (data: SubmitRecordPayload): Promise<boolean> => {
     if (navigator.onLine) {
       try {
         const res = await fetch('/api/records', {
@@ -193,7 +199,7 @@ export default function App() {
           const updated = [...records, result.record];
           setRecords(updated);
           saveOfflineBackup(updated);
-          showToast('Data berhasil disimpan dan masuk ke Excel realtime.', 'success');
+          showToast('Data berhasil disimpan!', 'success');
           return true;
         }
       } catch (err) {
@@ -203,20 +209,28 @@ export default function App() {
 
     // Offline fallback: save locally immediately so user data is NEVER lost
     const offlineRecord = createOfflineRecord(data, records.length);
-
     queueOfflineRecord(offlineRecord);
     const updated = [...records, offlineRecord];
     setRecords(updated);
     saveOfflineBackup(updated);
     setPendingOfflineCount(getPendingOfflineRecords().length);
-    showToast('Offline: Data tersimpan aman di HP/Laptop & siap disinkronkan!', 'success');
+    showToast('Offline: Data tersimpan aman di HP & siap disinkronkan!', 'success');
     return true;
   };
 
-  // Update existing record (Rubah Data)
+  // Update existing record
   const handleUpdateRecord = async (
     id: string,
-    updatedData: { name: string; address: string; amount: number }
+    updatedData: {
+      name: string;
+      address: string;
+      amount: number;
+      jenisTelitian?: string;
+      kategoriTamu?: string;
+      rincianBarang?: string;
+      petugas?: string;
+      statusValidasi?: string;
+    }
   ): Promise<boolean> => {
     try {
       const res = await fetch(`/api/records/${id}`, {
@@ -242,9 +256,7 @@ export default function App() {
           r.id === id
             ? {
                 ...r,
-                name: updatedData.name,
-                address: updatedData.address,
-                amount: updatedData.amount,
+                ...updatedData,
                 updatedAt: new Date().toISOString(),
               }
             : r
@@ -257,14 +269,12 @@ export default function App() {
       showToast(result.error || 'Gagal memperbarui data.', 'error');
       return false;
     } catch (err) {
-      // Offline fallback: langsung perbarui di memori lokal agar tugas operator tidak terhambat
+      // Offline fallback: update in local state
       const updated = records.map((r) =>
         r.id === id
           ? {
               ...r,
-              name: updatedData.name,
-              address: updatedData.address,
-              amount: updatedData.amount,
+              ...updatedData,
               updatedAt: new Date().toISOString(),
             }
           : r
@@ -276,7 +286,7 @@ export default function App() {
     }
   };
 
-  // Delete record (Soft delete / Hapus Data)
+  // Delete record
   const handleDeleteRecord = async (id: string): Promise<boolean> => {
     try {
       const res = await fetch(`/api/records/${id}`, {
@@ -306,20 +316,20 @@ export default function App() {
       showToast(result.error || 'Gagal menghapus data.', 'error');
       return false;
     } catch (err) {
-      // Offline fallback: hapus dari memori lokal
+      // Offline fallback
       const filtered = records.filter((r) => r.id !== id);
       const reindexed = filtered.map((r, idx) => ({ ...r, no: idx + 1 }));
       setRecords(reindexed);
       saveOfflineBackup(reindexed);
-      showToast('Data dihapus dari memori perangkat (Mode Offline).', 'success');
+      showToast('Data dihapus dari memori HP (Mode Offline).', 'success');
       return true;
     }
   };
 
-  // Realtime Excel Export (.xlsx) - Reliable client-side direct download
+  // Export Excel (.xlsx)
   const handleExportExcel = () => {
     if (records.length === 0) {
-      showToast('Belum ada data untuk diexport. Data saat ini masih 0.', 'error');
+      showToast('Belum ada data untuk diexport. Data masih 0.', 'error');
       return;
     }
 
@@ -327,7 +337,6 @@ export default function App() {
       exportToExcel(records, stats.totalUang);
       showToast('File Excel (.xlsx) berhasil diunduh!', 'success');
     } catch (err: any) {
-      console.error('Export Excel failed:', err);
       showToast('Gagal mengunduh Excel: ' + (err?.message || 'Terjadi kesalahan'), 'error');
     }
   };
@@ -335,7 +344,7 @@ export default function App() {
   // Export Word (.docx)
   const handleExportWord = () => {
     if (records.length === 0) {
-      alert('Belum ada data untuk diexport. Data saat ini masih 0.');
+      showToast('Belum ada data untuk diexport. Data masih 0.', 'error');
       return;
     }
     exportToWord(records, stats.totalUang);
@@ -346,15 +355,13 @@ export default function App() {
     window.print();
   };
 
-  // Restore JSON (Khusus Admin)
+  // Restore JSON
   const handleRestoreLocalJson = async (restored: TelitianRecord[]) => {
     if (!isAdmin) {
       setIsLoginModalOpen(true);
-      showToast('Akses ditolak: Login admin terlebih dahulu untuk memulihkan database.', 'error');
+      showToast('Akses ditolak: Login admin terlebih dahulu.', 'error');
       return;
     }
-
-    showToast(`Memulihkan ${restored.length} data...`, 'success');
 
     try {
       const res = await fetch('/api/records/restore-json', {
@@ -363,23 +370,16 @@ export default function App() {
         body: JSON.stringify({ records: restored }),
       });
       const resData = await res.json();
-      if (res.status === 401 || res.status === 403 || resData.requireLogin) {
-        setIsAdmin(false);
-        setIsLoginModalOpen(true);
-        showToast(resData.error || 'Akses ditolak: Silakan login admin.', 'error');
-        return;
-      }
-
       if (resData.success) {
         setRecords(restored);
         saveOfflineBackup(restored);
-        showToast(resData.message || `Berhasil memulihkan ${restored.length} data ke database & Sheets!`, 'success');
+        showToast(`Berhasil memulihkan ${restored.length} data telitian.`, 'success');
         fetchRecords();
       } else {
         showToast('Gagal memulihkan database: ' + (resData.error || ''), 'error');
       }
     } catch (err) {
-      showToast('Gagal terhubung ke server saat memulihkan database.', 'error');
+      showToast('Gagal terhubung ke server.', 'error');
     }
   };
 
@@ -389,7 +389,7 @@ export default function App() {
     clearPendingQueue();
     clearOfflineBackup();
     setPendingOfflineCount(0);
-    showToast('Database berhasil direset ke 0. File arsip telah diamankan di server.', 'success');
+    showToast('Database berhasil direset ke 0.', 'success');
   };
 
   // Logout Admin
@@ -403,140 +403,91 @@ export default function App() {
     }
   };
 
-  const handleScrollToForm = () => {
-    setActiveTab('pendataan');
-    setTimeout(() => {
-      const el = document.getElementById('input-telitian-section');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
-        document.getElementById('field-nama')?.focus();
-      }
-    }, 100);
-  };
-
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-900 selection:bg-violet-800 selection:text-white pb-24 md:pb-16">
-      {/* Formal Top Accent Line */}
-      <div className="h-1 w-full bg-gradient-to-r from-slate-900 via-violet-800 to-indigo-900" />
-
-      {/* Navigation Bar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-900 selection:bg-[#6D4AFF] selection:text-white flex flex-col">
+      {/* 1. HEADER: Sticky di atas, Tinggi 56–64 px, Background putih, Menu titik tiga di kanan */}
+      <Header
+        onRefreshData={fetchRecords}
+        onGoToBackup={() => setActiveTab('laporan')}
+        onGoToLaporan={() => setActiveTab('laporan')}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenTentang={() => setIsTentangModalOpen(true)}
+        isOnline={isOnline}
         isAdmin={isAdmin}
         onOpenLogin={() => setIsLoginModalOpen(true)}
         onLogout={handleLogout}
-        isOnline={isOnline}
         pendingOfflineCount={pendingOfflineCount}
         onSyncOffline={handleSyncOffline}
-        onOpenReset={() => setIsResetModalOpen(true)}
-        onExportExcel={handleExportExcel}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {/* Event Header Banner */}
-        <Header
-          onScrollToForm={handleScrollToForm}
-          onExportExcel={handleExportExcel}
-          onPrint={handlePrint}
-          isOnline={isOnline}
-          totalData={stats.totalData}
-          totalUang={stats.totalUang}
-        />
-
-        {/* 3 Stats Cards: Total Data, Total Uang, Input Terakhir */}
-        <StatsCards
-          totalData={stats.totalData}
-          totalUang={stats.totalUang}
-          lastInputTime={stats.lastInputTime}
-          onExportExcel={handleExportExcel}
-          isOnline={isOnline}
-        />
-
-        {/* View Selection */}
+      {/* 2. MAIN CONTENT: Mobile-first container, max-w-[480px] on mobile, responsive to desktop */}
+      <main className="flex-1 w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl mx-auto px-3 sm:px-4 pt-3.5 pb-24 sm:pb-28">
         {activeTab === 'dashboard' && (
-          <div className="space-y-8 animate-fade-in">
-            {/* Input Form */}
-            <InputForm
-              existingRecords={records}
-              onSubmitRecord={handleCreateRecord}
-              isOnline={isOnline}
-            />
-
-            {/* Data Table */}
-            <DataTable
-              records={records}
-              allRecordsTotalUang={stats.totalUang}
-              allRecordsCount={stats.totalData}
-              onEdit={(r) => setEditingRecord(r)}
-              onDelete={(r) => setDeletingRecord(r)}
-              onExportExcel={handleExportExcel}
-              onExportWord={handleExportWord}
-              onPrint={handlePrint}
-              onGoToBackup={() => setActiveTab('backup')}
-              onScrollToForm={handleScrollToForm}
-              onOpenReset={() => setIsResetModalOpen(true)}
-            />
-          </div>
+          <DashboardView
+            records={records}
+            totalData={stats.totalData}
+            totalUang={stats.totalUang}
+            onGoToInput={() => setActiveTab('pendataan')}
+            onGoToData={() => setActiveTab('data')}
+          />
         )}
 
         {activeTab === 'pendataan' && (
-          <div className="animate-fade-in">
-            <InputForm
-              existingRecords={records}
-              onSubmitRecord={handleCreateRecord}
-              isOnline={isOnline}
-            />
-          </div>
+          <InputForm
+            existingRecords={records}
+            onSubmitRecord={handleCreateRecord}
+            isOnline={isOnline}
+            onSuccessNavigateToData={() => setActiveTab('data')}
+          />
         )}
 
         {activeTab === 'data' && (
-          <div className="animate-fade-in">
-            <DataTable
-              records={records}
-              allRecordsTotalUang={stats.totalUang}
-              allRecordsCount={stats.totalData}
-              isAdmin={isAdmin}
-              onOpenLogin={() => setIsLoginModalOpen(true)}
-              onEdit={(r) => setEditingRecord(r)}
-              onDelete={(r) => setDeletingRecord(r)}
-              onExportExcel={handleExportExcel}
-              onExportWord={handleExportWord}
-              onPrint={handlePrint}
-              onGoToBackup={() => setActiveTab('backup')}
-              onScrollToForm={handleScrollToForm}
-              onOpenReset={() => setIsResetModalOpen(true)}
-            />
-          </div>
+          <DataTable
+            records={records}
+            allRecordsTotalUang={stats.totalUang}
+            allRecordsCount={stats.totalData}
+            isAdmin={isAdmin}
+            onOpenLogin={() => setIsLoginModalOpen(true)}
+            onEdit={(r) => setEditingRecord(r)}
+            onDelete={(r) => setDeletingRecord(r)}
+            onExportExcel={handleExportExcel}
+            onExportWord={handleExportWord}
+            onPrint={handlePrint}
+            onGoToBackup={() => setActiveTab('laporan')}
+            onScrollToForm={() => setActiveTab('pendataan')}
+            onOpenReset={() => setIsResetModalOpen(true)}
+          />
         )}
 
-        {activeTab === 'backup' && (
-          <div className="animate-fade-in">
-            <BackupView
-              records={records}
-              totalUang={stats.totalUang}
-              isAdmin={isAdmin}
-              onOpenLogin={() => setIsLoginModalOpen(true)}
-              onRestoreLocalJson={handleRestoreLocalJson}
-              onExportExcel={handleExportExcel}
-              onOpenReset={() => setIsResetModalOpen(true)}
-              isOnline={isOnline}
-              pendingOfflineCount={pendingOfflineCount}
-              onSyncOffline={handleSyncOffline}
-            />
-          </div>
+        {activeTab === 'laporan' && (
+          <LaporanView
+            records={records}
+            totalData={stats.totalData}
+            totalUang={stats.totalUang}
+            onPrint={handlePrint}
+            onSyncGas={handleSyncOffline}
+            onRestoreData={handleRestoreLocalJson}
+            onOpenReset={() => setIsResetModalOpen(true)}
+            isAdmin={isAdmin}
+          />
         )}
       </main>
 
+      {/* 3. BOTTOM NAVIGATION: Fixed di bawah, Tinggi 64–72 px, 4 menu utama (Dashboard, Data, + Tambah, Laporan) */}
+      <BottomNavigation
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
+
       {/* Floating Toast Notification */}
       {toast && (
-        <div className="fixed bottom-20 md:bottom-6 left-4 right-4 sm:left-auto sm:right-6 max-w-sm z-50 flex items-center gap-2.5 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-white border border-slate-300 text-slate-900 shadow-xl animate-fade-in toast-container">
+        <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 max-w-sm z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-slate-900 text-white shadow-xl animate-fade-in">
           {toast.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
           )}
-          <span className="text-xs sm:text-sm font-bold tracking-wide break-words">{toast.message}</span>
+          <span className="text-xs sm:text-sm font-semibold tracking-wide break-words">{toast.message}</span>
         </div>
       )}
 
@@ -564,12 +515,31 @@ export default function App() {
         }}
       />
 
-      {/* Reset Confirmation Modal */}
       <ResetModal
         isOpen={isResetModalOpen}
         onClose={() => setIsResetModalOpen(false)}
         onResetSuccess={handleResetComplete}
         currentTotalData={stats.totalData}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        isAdmin={isAdmin}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
+        onLogout={handleLogout}
+        onOpenReset={() => setIsResetModalOpen(true)}
+        onOpenGoogleScriptHelp={() => setIsGoogleScriptModalOpen(true)}
+      />
+
+      <TentangModal
+        isOpen={isTentangModalOpen}
+        onClose={() => setIsTentangModalOpen(false)}
+      />
+
+      <GoogleScriptModal
+        isOpen={isGoogleScriptModalOpen}
+        onClose={() => setIsGoogleScriptModalOpen(false)}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 {
-  "name": "PENDATAAN TELITIAN HAJATAN",
-  "description": "Aplikasi pendataan uang masuk telitian / amplop hajatan Gibran Kurniawan dengan integrasi Google Sheets & Google Drive backup.",
+  "name": "TELITIAN GIBRAN",
+  "description": "Pendataan Telitian Hajatan Khitanan Gibran Kurniawan",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
