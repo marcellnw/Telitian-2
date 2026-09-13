@@ -1,0 +1,13 @@
+[
+  {
+    "id": "TLT-000001",
+    "no": 1,
+    "name": "Bpk. H. Soleh",
+    "address": "Dsn. Krajan RT 02",
+    "amount": 100000,
+    "dateInput": "13/09/2026",
+    "timeInput": "19.32 WIB",
+    "createdAt": "2026-09-13T12:32:55.831Z",
+    "updatedAt": "2026-09-13T12:32:55.831Z"
+  }
+]

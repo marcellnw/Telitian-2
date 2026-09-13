@@ -188,8 +188,15 @@ export async function syncPendingRecordsToServer(): Promise<{
       }),
     });
 
-    const data = await res.json();
-    if (data.success) {
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+
+    if (res.ok && data && data.success) {
       clearPendingQueue();
       return {
         success: true,
@@ -197,7 +204,10 @@ export async function syncPendingRecordsToServer(): Promise<{
         message: data.message || `Berhasil menyinkronkan ${data.count || queue.length} data ke server!`,
       };
     } else {
-      return { success: false, message: data.error || 'Server menolak sinkronisasi data.' };
+      return {
+        success: false,
+        message: data?.error || data?.message || (res.status ? `Server error (${res.status})` : 'Server menolak sinkronisasi data.'),
+      };
     }
   } catch (err: any) {
     return { success: false, message: err.message || 'Koneksi ke server gagal.' };

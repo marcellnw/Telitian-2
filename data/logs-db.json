@@ -1,1 +1,218 @@
-[]
+[
+  {
+    "date": "13/09/2026",
+    "time": "19.33.05 WIB",
+    "activity": "Reset Database",
+    "recordId": "SYSTEM",
+    "name": "Admin",
+    "note": "Database direset ke 0 (sebelumnya 1 data)"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.32.55 WIB",
+    "activity": "Tambah Data",
+    "recordId": "TLT-000001",
+    "name": "Bpk. H. Soleh",
+    "note": "Nominal: Rp 100.000"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.32.46 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 0 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.32.31 WIB",
+    "activity": "Reset Database",
+    "recordId": "SYSTEM",
+    "name": "Admin",
+    "note": "Database direset ke 0 (sebelumnya 3 data)"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.32.24 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.32.12 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.31.48 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.31.23 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.30.57 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.30.32 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.30.08 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.29.43 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.29.17 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.28.52 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.28.28 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.28.03 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.27.37 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.27.12 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.26.47 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.26.22 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.25.57 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.25.33 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.25.07 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.24.43 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.24.18 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.23.56 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  },
+  {
+    "date": "13/09/2026",
+    "time": "19.23.55 WIB",
+    "activity": "Sinkronisasi Penuh",
+    "recordId": "ALL",
+    "name": "System",
+    "note": "Tarik 3 dari Sheets, Kirim 0 ke Sheets"
+  }
+]

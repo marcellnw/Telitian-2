@@ -1,0 +1,35 @@
+[
+  {
+    "id": "TLT-000001",
+    "no": 1,
+    "name": "Tanti",
+    "address": "Rancahan",
+    "amount": 20000,
+    "dateInput": "13/09/2026",
+    "timeInput": "00.42 WIB",
+    "createdAt": "2026-09-12T17:42:54.759Z",
+    "updatedAt": "2026-09-13T01:12:29.763Z"
+  },
+  {
+    "id": "TLT-000002",
+    "no": 2,
+    "name": "Imas",
+    "address": "rancahan",
+    "amount": 100000,
+    "dateInput": "12/09/2026",
+    "timeInput": "23.19 WIB",
+    "createdAt": "2026-09-12T16:19:51.160Z",
+    "updatedAt": "2026-09-13T01:12:29.763Z"
+  },
+  {
+    "id": "TLT-000003",
+    "no": 3,
+    "name": "Tanti",
+    "address": "Rancahan",
+    "amount": 200000,
+    "dateInput": "13/09/2026",
+    "timeInput": "00.23 WIB",
+    "createdAt": "2026-09-12T17:23:22.175Z",
+    "updatedAt": "2026-09-13T01:12:29.763Z"
+  }
+]

@@ -201,7 +201,13 @@ class SyncEngine {
           throw new Error(`HTTP ${res.status}`);
         }
 
-        const data = await res.json();
+        const text = await res.text();
+        let data: any = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = {};
+        }
         const results = data.results || [];
 
         // Handle each result
@@ -298,8 +304,14 @@ class SyncEngine {
       throw new Error(`HTTP ${res.status}`);
     }
 
-    const data = await res.json();
-    const records = data.records || [];
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = {};
+    }
+    const records = data.records || data.data || [];
     let newOrUpdatedCount = 0;
 
     for (const cloudRec of records) {
@@ -364,9 +376,12 @@ class SyncEngine {
     try {
       const res = await fetch('/api/stats', { headers: { 'Accept': 'application/json' } });
       if (res.ok) {
-        const stats = await res.json();
-        this.notifyStats(stats);
-        return stats;
+        const text = await res.text();
+        const stats = text ? JSON.parse(text) : null;
+        if (stats) {
+          this.notifyStats(stats);
+          return stats;
+        }
       }
     } catch (e) {
       // Ignore stats network error
