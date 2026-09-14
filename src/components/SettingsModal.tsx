@@ -11,6 +11,7 @@ import {
   Lock,
   LogOut,
   RefreshCw,
+  Cloud,
 } from 'lucide-react';
 import { getSavedGasUrl, saveGasUrl, getSavedGasSecret, saveGasSecret } from '../lib/gasClient';
 
@@ -22,6 +23,7 @@ interface SettingsModalProps {
   onLogout: () => void;
   onOpenReset?: () => void;
   onOpenGoogleScriptHelp?: () => void;
+  onOpenFirebaseSync?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -32,6 +34,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onLogout,
   onOpenReset,
   onOpenGoogleScriptHelp,
+  onOpenFirebaseSync,
 }) => {
   const [gasUrl, setGasUrl] = useState('');
   const [isSaved, setIsSaved] = useState(false);
@@ -115,7 +118,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
 
-        {/* 2. Pengaturan Google Apps Script */}
+        {/* 2. Firebase & Vercel Cloud Sync */}
+        {onOpenFirebaseSync && (
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center">
+                <Cloud className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-900">
+                  Firebase &amp; Vercel Cloud Sync
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Login akun &amp; sinkron multi-perangkat
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenFirebaseSync();
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold cursor-pointer transition-colors"
+            >
+              Buka
+            </button>
+          </div>
+        )}
+
+        {/* 3. Pengaturan Google Apps Script */}
         <form onSubmit={handleSaveGasUrl} className="space-y-2.5 pt-1">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-700">

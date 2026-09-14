@@ -21,16 +21,22 @@ import {
   ChevronDown,
   ChevronUp,
   Lock,
+  Cloud,
 } from 'lucide-react';
+import { User } from 'firebase/auth';
 import { TelitianRecord } from '../types/record';
 import { getErrorMessage } from '../lib/errorHelper';
 import { formatRupiah, formatDateTimeJakarta } from '../lib/currency';
+import { saveCloudSheetsConfig, syncSpreadsheetWithFirestore } from '../lib/firebaseSync';
+import { setCloudGasUrlCache } from '../lib/gasClient';
 
 interface BackupViewProps {
   records: TelitianRecord[];
   totalUang: number;
   isAdmin?: boolean;
   onOpenLogin?: () => void;
+  onOpenFirebaseSync?: () => void;
+  firebaseUser?: User | null;
   onRestoreLocalJson: (records: TelitianRecord[]) => void;
   onExportExcel: () => void;
   onOpenReset: () => void;
@@ -44,6 +50,8 @@ export const BackupView: React.FC<BackupViewProps> = ({
   totalUang,
   isAdmin = false,
   onOpenLogin,
+  onOpenFirebaseSync,
+  firebaseUser,
   onRestoreLocalJson,
   onExportExcel,
   onOpenReset,
@@ -138,6 +146,11 @@ export const BackupView: React.FC<BackupViewProps> = ({
         message: data.testMessage || data.message || 'Konfigurasi tersimpan.',
         isHtmlLogin: data.isHtmlLogin,
       });
+
+      // Persist to Cloud Firestore so all other devices and domains automatically receive this URL
+      saveCloudSheetsConfig({ googleAppsScriptUrl: webAppUrl }).catch(() => {});
+      setCloudGasUrlCache(webAppUrl);
+
       if (data.connected) {
         setBackupStatus('Konfigurasi berhasil disimpan dan Google Sheets terhubung!');
       }
@@ -196,16 +209,31 @@ export const BackupView: React.FC<BackupViewProps> = ({
   const [syncingGas, setSyncingGas] = useState(false);
   const [syncGasResult, setSyncGasResult] = useState<any>(null);
 
-  // Manual trigger full bidirectional sync
+  // Manual trigger full bidirectional sync across Firestore, Local & Google Sheets
   const handleSyncGasNow = async () => {
     setSyncingGas(true);
     setSyncGasResult(null);
     try {
-      const res = await fetch('/api/gas/sync-now', { method: 'POST' });
-      const data = await res.json();
-      setSyncGasResult(data);
-      if (data.success) {
-        setBackupStatus(`Sinkronisasi Google Sheets berhasil: ${data.pulled ?? 0} ditarik, ${data.pushed ?? 0} dikirim.`);
+      // 1. Direct browser sync with Google Sheets & Firestore (updates all domains in real-time)
+      const cloudRes = await syncSpreadsheetWithFirestore(webAppUrl);
+
+      // 2. Local server sync
+      fetch('/api/gas/sync-now', { method: 'POST' }).catch(() => {});
+
+      if (cloudRes.success) {
+        setSyncGasResult({
+          success: true,
+          pulled: cloudRes.pulledFromSheets,
+          pushed: cloudRes.pushedToSheets,
+          totalSpreadsheet: cloudRes.totalRecords,
+          message: cloudRes.message,
+        });
+        setBackupStatus(`Sinkronisasi berhasil: ${cloudRes.message}`);
+      } else {
+        setSyncGasResult({
+          success: false,
+          error: cloudRes.error || 'Gagal sinkronisasi dengan Google Spreadsheet',
+        });
       }
     } catch (err: any) {
       setSyncGasResult({ success: false, error: err?.message || 'Gagal sinkronisasi' });
@@ -382,6 +410,50 @@ export const BackupView: React.FC<BackupViewProps> = ({
           <span>{backupStatus}</span>
         </div>
       )}
+
+      {/* Firebase Firestore & Vercel Cloud Sync Card */}
+      <div className="rounded-3xl bg-gradient-to-r from-amber-50 via-orange-50/40 to-white border-2 border-amber-300 p-6 md:p-8 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-xs">
+              <Cloud className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-black uppercase">
+                Firebase Firestore Cloud
+              </div>
+              <h3 className="text-lg font-black uppercase text-slate-900 mt-1">
+                Sinkronisasi Multi-Perangkat (Vercel &amp; Cloud)
+              </h3>
+              <p className="text-xs text-slate-600">
+                {firebaseUser ? (
+                  <span>
+                    Login sebagai: <strong className="text-amber-800">{firebaseUser.displayName || firebaseUser.email}</strong> • Data tersinkron otomatis antar HP
+                  </span>
+                ) : (
+                  <span>
+                    Masuk dengan akun Google atau email untuk mengaktifkan sinkronisasi otomatis ke cloud Firestore.
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {onOpenFirebaseSync && (
+              <button
+                id="btn-open-firebase-sync-panel"
+                type="button"
+                onClick={onOpenFirebaseSync}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>{firebaseUser ? 'Buka Sinkronisasi Cloud' : 'Login & Sinkron Cloud'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Target Google Sheet Database Card */}
       <div className="rounded-3xl bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-2 border-emerald-300 p-6 md:p-8 shadow-xs">

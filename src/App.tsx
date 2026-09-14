@@ -13,6 +13,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { TentangModal } from './components/TentangModal';
 import { GoogleScriptModal } from './components/GoogleScriptModal';
 import { GoogleDriveSheetsModal } from './components/GoogleDriveSheetsModal';
+import { FirebaseSyncModal } from './components/FirebaseSyncModal';
 import { TelitianRecord } from './types/record';
 import { exportToExcel, exportToWord } from './lib/export';
 import {
@@ -26,6 +27,19 @@ import {
   clearOfflineBackup,
   createOfflineRecord,
 } from './lib/offlineSync';
+import {
+  onFirebaseAuthStateChanged,
+  getCurrentFirebaseUser,
+  saveRecordToFirestore,
+  deleteRecordFromFirestore,
+  subscribeToFirestore,
+  initAnonymousAuth,
+  subscribeToCloudSheetsConfig,
+  syncSpreadsheetWithFirestore,
+  resetFirestoreRecords,
+} from './lib/firebaseSync';
+import { getSavedGasUrl, sendDirectToGas, setCloudGasUrlCache } from './lib/gasClient';
+import { User as FirebaseUser } from 'firebase/auth';
 import { getAdminHeaders } from './lib/adminAuth';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { getErrorMessage } from './lib/errorHelper';
@@ -39,6 +53,17 @@ export default function App() {
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [pendingOfflineCount, setPendingOfflineCount] = useState<number>(() => {
     return getPendingOfflineRecords().length;
+  });
+
+  // Firebase Cloud & Multi-Device Realtime Sync State
+  const [isFirebaseSyncModalOpen, setIsFirebaseSyncModalOpen] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(() => getCurrentFirebaseUser());
+  const [isRealtimeActive, setIsRealtimeActive] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const val = localStorage.getItem('firebase_realtime_sync');
+      return val === null ? true : val === 'true';
+    }
+    return true;
   });
 
   // Modals state
@@ -155,9 +180,106 @@ export default function App() {
   }, [handleSyncOffline]);
 
   useEffect(() => {
+    // 1. Authenticate anonymously in the background so all devices have immediate Firestore access
+    initAnonymousAuth().catch(() => {});
+
+    // 2. Realtime listener to shared Google Sheets Cloud Config
+    const unsubCloudConfig = subscribeToCloudSheetsConfig((cfg) => {
+      if (cfg?.googleAppsScriptUrl) {
+        setCloudGasUrlCache(cfg.googleAppsScriptUrl);
+      }
+    });
+
     fetchRecords();
     checkAuth();
+
+    return () => {
+      unsubCloudConfig();
+    };
   }, []);
+
+  // Listen to Firebase Auth state
+  useEffect(() => {
+    const unsubscribe = onFirebaseAuthStateChanged((user) => {
+      setFirebaseUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Listen to Firebase Realtime Sync across all devices and domains
+  useEffect(() => {
+    if (!isRealtimeActive) return;
+    const unsubscribe = subscribeToFirestore((cloudRecords) => {
+      if (cloudRecords && cloudRecords.length >= 0) {
+        setRecords(cloudRecords);
+        saveOfflineBackup(cloudRecords);
+        setIsLoadingRecords(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [isRealtimeActive]);
+
+  // Sync with Google Spreadsheet across devices
+  const handleSyncGoogleSheets = useCallback(async (silent = false) => {
+    const gasUrl = getSavedGasUrl();
+    if (!gasUrl) {
+      if (!silent) {
+        showToast('URL Google Apps Script belum diatur. Buka menu Backup & Excel.', 'error');
+        setIsGoogleScriptModalOpen(true);
+      }
+      return;
+    }
+
+    try {
+      const res = await syncSpreadsheetWithFirestore(gasUrl);
+      if (res.success) {
+        if (!silent) {
+          showToast(res.message, 'success');
+        }
+      } else {
+        if (!silent) {
+          showToast(getErrorMessage(res.error, 'Gagal menyinkronkan dengan Google Sheets'), 'error');
+        }
+      }
+    } catch (e) {
+      if (!silent) {
+        showToast(getErrorMessage(e, 'Gagal menyinkronkan dengan Google Sheets'), 'error');
+      }
+    }
+  }, []);
+
+  // Periodic automatic sync with Google Spreadsheet (every 30s when online, plus on window focus)
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const startupTimer = setTimeout(() => {
+      handleSyncGoogleSheets(true);
+    }, 2500);
+
+    const interval = setInterval(() => {
+      handleSyncGoogleSheets(true);
+    }, 30000);
+
+    const onFocus = () => {
+      handleSyncGoogleSheets(true);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearTimeout(startupTimer);
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [isOnline, handleSyncGoogleSheets]);
+
+  const handleToggleRealtime = (enabled: boolean) => {
+    setIsRealtimeActive(enabled);
+    localStorage.setItem('firebase_realtime_sync', enabled ? 'true' : 'false');
+    showToast(
+      enabled ? 'Real-time multi-device diaktifkan.' : 'Real-time multi-device dinonaktifkan.',
+      'success'
+    );
+  };
 
   // Continuously save to offline backup whenever records update
   useEffect(() => {
@@ -203,6 +325,16 @@ export default function App() {
           const updated = [...records, result.record];
           setRecords(updated);
           saveOfflineBackup(updated);
+
+          // 1. Instantly save to Firestore (broadcasts to all connected devices in realtime)
+          saveRecordToFirestore(result.record).catch((e) => console.warn('Firestore sync err:', e));
+
+          // 2. Push direct to Google Sheets Web App
+          const gasUrl = getSavedGasUrl();
+          if (gasUrl) {
+            sendDirectToGas('createData', { data: result.record }, gasUrl).catch(() => {});
+          }
+
           showToast('Data berhasil disimpan!', 'success');
           return true;
         }
@@ -217,6 +349,14 @@ export default function App() {
     const updated = [...records, offlineRecord];
     setRecords(updated);
     saveOfflineBackup(updated);
+
+    // Save to Firestore & Sheets if online channel is working
+    saveRecordToFirestore(offlineRecord).catch((e) => console.warn('Firestore sync err:', e));
+    const gasUrl = getSavedGasUrl();
+    if (gasUrl && navigator.onLine) {
+      sendDirectToGas('createData', { data: offlineRecord }, gasUrl).catch(() => {});
+    }
+
     setPendingOfflineCount(getPendingOfflineRecords().length);
     showToast('Offline: Data tersimpan aman di HP & siap disinkronkan!', 'success');
     return true;
@@ -272,6 +412,15 @@ export default function App() {
         );
         setRecords(updated);
         saveOfflineBackup(updated);
+
+        const match = updated.find((r) => r.id === id);
+        if (match) {
+          saveRecordToFirestore(match).catch((e) => console.warn('Firestore err:', e));
+          const gasUrl = getSavedGasUrl();
+          if (gasUrl && navigator.onLine) {
+            sendDirectToGas('updateData', { data: match }, gasUrl).catch(() => {});
+          }
+        }
         showToast(getErrorMessage(result?.message || 'Data berhasil diperbarui.'), 'success');
         return true;
       }
@@ -290,6 +439,15 @@ export default function App() {
       );
       setRecords(updated);
       saveOfflineBackup(updated);
+
+      const match = updated.find((r) => r.id === id);
+      if (match) {
+        saveRecordToFirestore(match).catch((e) => console.warn('Firestore err:', e));
+        const gasUrl = getSavedGasUrl();
+        if (gasUrl && navigator.onLine) {
+          sendDirectToGas('updateData', { data: match }, gasUrl).catch(() => {});
+        }
+      }
       showToast('Perubahan tersimpan di perangkat (Mode Offline).', 'success');
       return true;
     }
@@ -297,6 +455,7 @@ export default function App() {
 
   // Delete record
   const handleDeleteRecord = async (id: string): Promise<boolean> => {
+    const targetToDelete = records.find((r) => r.id === id);
     try {
       const res = await fetch(`/api/records/${id}`, {
         method: 'DELETE',
@@ -319,22 +478,19 @@ export default function App() {
         return false;
       }
 
-      if (result?.success) {
-        const filtered = records.filter((r) => r.id !== id);
-        const reindexed = filtered.map((r, idx) => ({ ...r, no: idx + 1 }));
-        setRecords(reindexed);
-        saveOfflineBackup(reindexed);
-        showToast(getErrorMessage(result?.message || 'Data berhasil dihapus.'), 'success');
-        return true;
-      }
-
-      // If server returned non-ok error (e.g. 404 in ephemeral serverless or network glitch),
-      // we still delete locally from device memory so the UI updates without crashing
       const filtered = records.filter((r) => r.id !== id);
       const reindexed = filtered.map((r, idx) => ({ ...r, no: idx + 1 }));
       setRecords(reindexed);
       saveOfflineBackup(reindexed);
-      showToast(getErrorMessage(result?.message || result?.error || 'Data berhasil dihapus dari memori.'), 'success');
+
+      // Broadcast delete to Firestore (all devices sync immediately)
+      deleteRecordFromFirestore(id, targetToDelete).catch((e) => console.warn('Firestore del err:', e));
+      const gasUrl = getSavedGasUrl();
+      if (gasUrl && navigator.onLine) {
+        sendDirectToGas('deleteData', { id }, gasUrl).catch(() => {});
+      }
+
+      showToast(getErrorMessage(result?.message || 'Data berhasil dihapus.'), 'success');
       return true;
     } catch (err) {
       // Offline fallback
@@ -342,6 +498,13 @@ export default function App() {
       const reindexed = filtered.map((r, idx) => ({ ...r, no: idx + 1 }));
       setRecords(reindexed);
       saveOfflineBackup(reindexed);
+
+      deleteRecordFromFirestore(id, targetToDelete).catch((e) => console.warn('Firestore del err:', e));
+      const gasUrl = getSavedGasUrl();
+      if (gasUrl && navigator.onLine) {
+        sendDirectToGas('deleteData', { id }, gasUrl).catch(() => {});
+      }
+
       showToast('Data dihapus dari memori HP (Mode Offline).', 'success');
       return true;
     }
@@ -410,7 +573,15 @@ export default function App() {
     clearPendingQueue();
     clearOfflineBackup();
     setPendingOfflineCount(0);
-    showToast('Database berhasil direset ke 0.', 'success');
+
+    // Reset Firestore & Google Apps Script
+    resetFirestoreRecords('Reset database oleh Admin').catch(() => {});
+    const gasUrl = getSavedGasUrl();
+    if (gasUrl && navigator.onLine) {
+      sendDirectToGas('resetData', {}, gasUrl).catch(() => {});
+    }
+
+    showToast('Database berhasil direset ke 0 di semua perangkat dan cloud.', 'success');
   };
 
   // Logout Admin
@@ -434,6 +605,10 @@ export default function App() {
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenTentang={() => setIsTentangModalOpen(true)}
         onOpenGoogleDriveSheets={() => setIsGoogleDriveSheetsModalOpen(true)}
+        onOpenFirebaseSync={() => setIsFirebaseSyncModalOpen(true)}
+        onSyncGoogleSheets={() => handleSyncGoogleSheets(false)}
+        firebaseUser={firebaseUser}
+        isRealtimeActive={isRealtimeActive}
         isOnline={isOnline}
         isAdmin={isAdmin}
         onOpenLogin={() => setIsLoginModalOpen(true)}
@@ -492,6 +667,8 @@ export default function App() {
             onOpenReset={() => setIsResetModalOpen(true)}
             isAdmin={isAdmin}
             onOpenGoogleDriveSheets={() => setIsGoogleDriveSheetsModalOpen(true)}
+            onOpenFirebaseSync={() => setIsFirebaseSyncModalOpen(true)}
+            firebaseUser={firebaseUser}
           />
         )}
       </main>
@@ -553,6 +730,7 @@ export default function App() {
         onLogout={handleLogout}
         onOpenReset={() => setIsResetModalOpen(true)}
         onOpenGoogleScriptHelp={() => setIsGoogleScriptModalOpen(true)}
+        onOpenFirebaseSync={() => setIsFirebaseSyncModalOpen(true)}
       />
 
       <TentangModal
@@ -570,6 +748,20 @@ export default function App() {
         onClose={() => setIsGoogleDriveSheetsModalOpen(false)}
         records={records}
         totalUang={stats.totalUang}
+      />
+
+      <FirebaseSyncModal
+        isOpen={isFirebaseSyncModalOpen}
+        onClose={() => setIsFirebaseSyncModalOpen(false)}
+        localRecords={records}
+        onRecordsUpdated={(newRecords) => {
+          setRecords(newRecords);
+          saveOfflineBackup(newRecords);
+        }}
+        isRealtimeActive={isRealtimeActive}
+        onToggleRealtime={handleToggleRealtime}
+        currentUser={firebaseUser}
+        onUserChanged={(user) => setFirebaseUser(user)}
       />
     </div>
   );

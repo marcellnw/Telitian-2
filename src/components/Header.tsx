@@ -12,7 +12,9 @@ import {
   WifiOff,
   RefreshCw,
   FileSpreadsheet,
+  Cloud,
 } from 'lucide-react';
+import { User } from 'firebase/auth';
 
 interface HeaderProps {
   onRefreshData?: () => void;
@@ -21,6 +23,10 @@ interface HeaderProps {
   onOpenSettings?: () => void;
   onOpenTentang?: () => void;
   onOpenGoogleDriveSheets?: () => void;
+  onOpenFirebaseSync?: () => void;
+  onSyncGoogleSheets?: () => void;
+  firebaseUser?: User | null;
+  isRealtimeActive?: boolean;
   isOnline?: boolean;
   isAdmin?: boolean;
   onOpenLogin?: () => void;
@@ -42,6 +48,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenTentang,
   onOpenGoogleDriveSheets,
+  onOpenFirebaseSync,
+  onSyncGoogleSheets,
+  firebaseUser,
+  isRealtimeActive = false,
   isOnline = true,
   isAdmin = false,
   onOpenLogin,
@@ -94,8 +104,41 @@ export const Header: React.FC<HeaderProps> = ({
           </p>
         </div>
 
-        {/* Bagian Kanan: Status Koneksi & Menu Titik Tiga Vertikal */}
+        {/* Bagian Kanan: Status Koneksi, Firebase Cloud Sync & Menu Titik Tiga */}
         <div className="relative flex items-center gap-1 shrink-0">
+          {/* Firebase Cloud Sync Indicator / Button */}
+          {onOpenFirebaseSync && (
+            <button
+              id="header-firebase-sync-btn"
+              type="button"
+              onClick={onOpenFirebaseSync}
+              title={
+                isRealtimeActive
+                  ? 'Real-Time Sync Aktif: Data selalu sinkron di semua HP, laptop, dan Google Spreadsheet'
+                  : firebaseUser
+                  ? `Tersambung ke Cloud: ${firebaseUser.displayName || firebaseUser.email}`
+                  : 'Cloud Sync: Klik untuk sinkronkan data multi-perangkat'
+              }
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                isRealtimeActive
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100 shadow-2xs'
+                  : firebaseUser
+                  ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 shadow-2xs'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <div className="relative">
+                <Cloud className={`w-3.5 h-3.5 ${isRealtimeActive ? 'text-emerald-600' : firebaseUser ? 'text-amber-600' : 'text-slate-500'}`} />
+                {isRealtimeActive && (
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                )}
+              </div>
+              <span className="hidden xs:inline sm:inline max-w-[90px] truncate text-[11px]">
+                {isRealtimeActive ? 'Realtime' : firebaseUser ? (firebaseUser.displayName?.split(' ')[0] || 'Cloud') : 'Cloud'}
+              </span>
+            </button>
+          )}
+
           {/* Status Offline / Online Indikator Halus */}
           {pendingOfflineCount > 0 && onSyncOffline && (
             <button
@@ -159,7 +202,31 @@ export const Header: React.FC<HeaderProps> = ({
                   <span>Backup &amp; Export</span>
                 </button>
 
-                {/* 3. Google Drive & Sheets */}
+                {/* 3. Firebase & Vercel Cloud Sync */}
+                {onOpenFirebaseSync && (
+                  <button
+                    type="button"
+                    onClick={() => handleAction(onOpenFirebaseSync)}
+                    className="w-full flex items-center gap-3 px-3 h-11 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-50 active:bg-slate-100 text-sm font-medium transition-colors cursor-pointer text-left"
+                  >
+                    <Cloud className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Firebase &amp; Cloud Sync</span>
+                  </button>
+                )}
+
+                {/* 3b. Quick Sync Google Spreadsheet */}
+                {onSyncGoogleSheets && (
+                  <button
+                    type="button"
+                    onClick={() => handleAction(onSyncGoogleSheets)}
+                    className="w-full flex items-center gap-3 px-3 h-11 rounded-lg text-emerald-800 hover:text-emerald-950 hover:bg-emerald-50 active:bg-emerald-100 text-sm font-semibold transition-colors cursor-pointer text-left"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Sinkron Spreadsheet</span>
+                  </button>
+                )}
+
+                {/* 4. Google Drive & Sheets */}
                 {onOpenGoogleDriveSheets && (
                   <button
                     type="button"

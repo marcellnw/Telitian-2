@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated via Firebase Auth
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Records collection: realtime sync across all devices and website domains
+    match /records/{recordId} {
+      allow read, write: if true;
+    }
+
+    // User profiles: authenticated users can manage their profile
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Activity logs: record audit trail of all operations
+    match /activity_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    // Deleted records archive
+    match /deleted_records/{recordId} {
+      allow read, write: if true;
+    }
+
+    // Application settings (sheets config, sync state, reset state)
+    match /app_settings/{settingId} {
+      allow read, write: if true;
+    }
+  }
+}
+

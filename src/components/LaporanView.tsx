@@ -14,7 +14,9 @@ import {
   Baby,
   User,
   Coins,
+  Cloud,
 } from 'lucide-react';
+import { User as FirebaseUser } from 'firebase/auth';
 import { TelitianRecord } from '../types/record';
 import { formatRupiah } from '../lib/currency';
 import { exportToExcel, exportToWord } from '../lib/export';
@@ -29,6 +31,8 @@ interface LaporanViewProps {
   onOpenReset?: () => void;
   isAdmin?: boolean;
   onOpenGoogleDriveSheets?: () => void;
+  onOpenFirebaseSync?: () => void;
+  firebaseUser?: FirebaseUser | null;
 }
 
 export const LaporanView: React.FC<LaporanViewProps> = ({
@@ -41,6 +45,8 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
   onOpenReset,
   isAdmin = false,
   onOpenGoogleDriveSheets,
+  onOpenFirebaseSync,
+  firebaseUser,
 }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -263,6 +269,46 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Firebase Firestore & Vercel Sync */}
+      {onOpenFirebaseSync && (
+        <div className="rounded-xl sm:rounded-2xl bg-white border border-amber-300 p-4 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                <Cloud className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Firebase &amp; Vercel Cloud Sync</h3>
+                <p className="text-xs text-slate-500">
+                  {firebaseUser
+                    ? `Terhubung: ${firebaseUser.displayName || firebaseUser.email}`
+                    : 'Masuk dengan Google / Email untuk sinkron antar perangkat'}
+                </p>
+              </div>
+            </div>
+            {firebaseUser ? (
+              <span className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
+                <span>Terhubung</span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                Belum Login
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenFirebaseSync}
+            className="w-full h-11 rounded-xl bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 text-xs font-bold transition-colors cursor-pointer shadow-xs"
+          >
+            <Cloud className="w-4 h-4" />
+            <span>{firebaseUser ? 'Buka Pengaturan & Sinkronisasi Cloud' : 'Masuk Akun & Aktifkan Sinkronisasi'}</span>
+          </button>
+        </div>
+      )}
 
       {/* Cloud Sync & Google Apps Script */}
       <div className="rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 p-4 shadow-2xs space-y-3">

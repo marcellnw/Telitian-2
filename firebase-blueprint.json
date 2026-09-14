@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account and profile data for telitian operators",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "operator"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email"]
+    },
+    "TelitianRecord": {
+      "title": "TelitianRecord",
+      "description": "Guest gift and telitian entry in the hajatan registry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "no": { "type": "number" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "amount": { "type": "number" },
+        "dateInput": { "type": "string" },
+        "timeInput": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "jenisTelitian": { "type": "string" },
+        "kategoriTamu": { "type": "string" },
+        "rincianBarang": { "type": "string" },
+        "petugas": { "type": "string" },
+        "statusValidasi": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["id", "name", "amount"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Audit trail log of actions taken",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "activity": { "type": "string" },
+        "recordId": { "type": "string" },
+        "name": { "type": "string" },
+        "note": { "type": "string" },
+        "operator": { "type": "string" }
+      },
+      "required": ["id", "activity", "date", "time"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/records/{recordId}": {
+      "schema": "TelitianRecord",
+      "description": "Telitian guest gift records synchronized with Firestore"
+    },
+    "/activity_logs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Audit trail activity logs"
+    },
+    "/deleted_records/{recordId}": {
+      "schema": "TelitianRecord",
+      "description": "Deleted records backup in cloud"
+    },
+    "/app_settings/{settingId}": {
+      "schema": "object",
+      "description": "Application settings and event config"
+    }
+  }
+}
