@@ -28,6 +28,7 @@ import {
 } from './lib/offlineSync';
 import { getAdminHeaders } from './lib/adminAuth';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { getErrorMessage } from './lib/errorHelper';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<MainTabType>('dashboard');
@@ -54,8 +55,9 @@ export default function App() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
+  const showToast = (message: unknown, type: 'success' | 'error' = 'success') => {
+    const safeMessage = getErrorMessage(message, 'Operasi selesai');
+    setToast({ message: safeMessage, type });
     setTimeout(() => {
       setToast(null);
     }, 4000);
@@ -74,15 +76,15 @@ export default function App() {
       if (result.success) {
         clearPendingQueue();
         setPendingOfflineCount(0);
-        showToast(result.message || 'Data offline berhasil disinkronkan!', 'success');
+        showToast(getErrorMessage(result.message, 'Data offline berhasil disinkronkan!'), 'success');
         fetchRecords();
         return result;
       } else {
-        showToast('Gagal menyinkronkan: ' + (result.message || 'Periksa koneksi'), 'error');
+        showToast(getErrorMessage(result.message, 'Gagal menyinkronkan data. Periksa koneksi.'), 'error');
         return result;
       }
     } catch (e) {
-      showToast('Gagal menyinkronkan data offline ke server.', 'error');
+      showToast(getErrorMessage(e, 'Gagal menyinkronkan data offline ke server.'), 'error');
       return { success: false };
     }
   }, []);
@@ -244,16 +246,21 @@ export default function App() {
         credentials: 'include',
         body: JSON.stringify(updatedData),
       });
-      const result = await res.json();
+      let result: any = null;
+      try {
+        result = await res.json();
+      } catch (_) {
+        result = null;
+      }
 
-      if (res.status === 401 || res.status === 403 || result.requireLogin) {
+      if (res.status === 401 || res.status === 403 || result?.requireLogin) {
         setIsAdmin(false);
         setIsLoginModalOpen(true);
-        showToast(result.error || 'Akses ditolak: Silakan masukkan sandi admin.', 'error');
+        showToast(getErrorMessage(result?.error || 'Akses ditolak: Silakan masukkan sandi admin.'), 'error');
         return false;
       }
 
-      if (result.success) {
+      if (result?.success) {
         const updated = records.map((r) =>
           r.id === id
             ? {
@@ -265,10 +272,10 @@ export default function App() {
         );
         setRecords(updated);
         saveOfflineBackup(updated);
-        showToast(result.message || 'Data berhasil diperbarui.', 'success');
+        showToast(getErrorMessage(result?.message || 'Data berhasil diperbarui.'), 'success');
         return true;
       }
-      showToast(result.error || 'Gagal memperbarui data.', 'error');
+      showToast(getErrorMessage(result?.error || 'Gagal memperbarui data.'), 'error');
       return false;
     } catch (err) {
       // Offline fallback: update in local state
@@ -298,25 +305,37 @@ export default function App() {
         },
         credentials: 'include',
       });
-      const result = await res.json();
+      let result: any = null;
+      try {
+        result = await res.json();
+      } catch (_) {
+        result = null;
+      }
 
-      if (res.status === 401 || res.status === 403 || result.requireLogin) {
+      if (res.status === 401 || res.status === 403 || result?.requireLogin) {
         setIsAdmin(false);
         setIsLoginModalOpen(true);
-        showToast(result.error || 'Akses ditolak: Silakan masukkan sandi admin.', 'error');
+        showToast(getErrorMessage(result?.error || 'Akses ditolak: Silakan masukkan sandi admin.'), 'error');
         return false;
       }
 
-      if (result.success) {
+      if (result?.success) {
         const filtered = records.filter((r) => r.id !== id);
         const reindexed = filtered.map((r, idx) => ({ ...r, no: idx + 1 }));
         setRecords(reindexed);
         saveOfflineBackup(reindexed);
-        showToast(result.message || 'Data berhasil dihapus.', 'success');
+        showToast(getErrorMessage(result?.message || 'Data berhasil dihapus.'), 'success');
         return true;
       }
-      showToast(result.error || 'Gagal menghapus data.', 'error');
-      return false;
+
+      // If server returned non-ok error (e.g. 404 in ephemeral serverless or network glitch),
+      // we still delete locally from device memory so the UI updates without crashing
+      const filtered = records.filter((r) => r.id !== id);
+      const reindexed = filtered.map((r, idx) => ({ ...r, no: idx + 1 }));
+      setRecords(reindexed);
+      saveOfflineBackup(reindexed);
+      showToast(getErrorMessage(result?.message || result?.error || 'Data berhasil dihapus dari memori.'), 'success');
+      return true;
     } catch (err) {
       // Offline fallback
       const filtered = records.filter((r) => r.id !== id);
@@ -491,7 +510,7 @@ export default function App() {
           ) : (
             <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
           )}
-          <span className="text-xs sm:text-sm font-semibold tracking-wide break-words">{toast.message}</span>
+          <span className="text-xs sm:text-sm font-semibold tracking-wide break-words">{getErrorMessage(toast.message)}</span>
         </div>
       )}
 

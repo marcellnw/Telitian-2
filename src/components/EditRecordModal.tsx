@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import type { LocalRecord } from '../db/database.ts';
+import { getErrorMessage } from '../lib/errorHelper';
 
 interface EditRecordModalProps {
   record: LocalRecord | null;
@@ -50,7 +51,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
       await onSave(record.id, nama.trim(), alamat.trim(), num);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Gagal menyimpan perubahan');
+      setError(getErrorMessage(err, 'Gagal menyimpan perubahan'));
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
         {error && (
           <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-red-950/50 border border-red-800 text-xs text-red-300">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-            <span>{error}</span>
+            <span>{getErrorMessage(error)}</span>
           </div>
         )}
 

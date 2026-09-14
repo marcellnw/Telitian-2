@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Copy, Check, ExternalLink, RefreshCw, AlertTriangle, CheckCircle2, ShieldCheck, Database, FileSpreadsheet, ArrowRight, Play } from 'lucide-react';
+import { getErrorMessage } from '../lib/errorHelper';
 
 interface GoogleScriptModalProps {
   isOpen: boolean;
@@ -141,7 +142,7 @@ export const GoogleScriptModal: React.FC<GoogleScriptModalProps> = ({ isOpen, on
                     {testResult.connected ? 'Google Sheets Terhubung Normal' : 'Status Koneksi:'}
                   </span>
                 </div>
-                <p className="text-slate-300 mt-1">{testResult.message}</p>
+                <p className="text-slate-300 mt-1">{getErrorMessage(testResult.message)}</p>
                 {testResult.spreadsheetName && (
                   <p className="text-emerald-400 font-mono text-[11px] mt-1">
                     Spreadsheet: {testResult.spreadsheetName} ({testResult.recordsCount ?? 0} data)
@@ -162,7 +163,7 @@ export const GoogleScriptModal: React.FC<GoogleScriptModalProps> = ({ isOpen, on
                     {syncResult.success ? 'Sinkronisasi Berhasil' : 'Pemberitahuan Sinkronisasi'}
                   </span>
                 </div>
-                <p className="text-slate-300 mt-1">{syncResult.message || syncResult.error}</p>
+                <p className="text-slate-300 mt-1">{getErrorMessage(syncResult.message || syncResult.error)}</p>
               </div>
             )}
           </div>

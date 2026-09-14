@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { RotateCcw, AlertTriangle, X, ShieldAlert, Check, Loader2 } from 'lucide-react';
 import { getAdminHeaders } from '../lib/adminAuth';
+import { getErrorMessage } from '../lib/errorHelper';
 
 interface ResetModalProps {
   isOpen: boolean;
@@ -57,11 +58,11 @@ export const ResetModal: React.FC<ResetModalProps> = ({
           setConfirmationWord('');
           onClose();
         } else {
-          alert('Gagal melakukan reset: ' + (data?.error || text || 'Terjadi kesalahan pada server.'));
+          alert('Gagal melakukan reset: ' + getErrorMessage(data?.error || text, 'Terjadi kesalahan pada server.'));
         }
       }
     } catch (err: any) {
-      alert('Gagal melakukan reset: ' + (err?.message || 'Koneksi ke server bermasalah.'));
+      alert('Gagal melakukan reset: ' + getErrorMessage(err, 'Koneksi ke server bermasalah.'));
     } finally {
       setIsResetting(false);
     }

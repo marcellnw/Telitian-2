@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
+import { getErrorMessage } from '../lib/errorHelper';
 import {
   signInWithGoogle,
   googleSignOut,
@@ -125,7 +126,7 @@ export const GoogleDriveSheetsModal: React.FC<GoogleDriveSheetsModalProps> = ({
     } catch (err: any) {
       setStatusMessage({
         type: 'error',
-        text: err?.message || 'Gagal login dengan akun Google.',
+        text: getErrorMessage(err, 'Gagal login dengan akun Google.'),
       });
     } finally {
       setIsSigningIn(false);
@@ -170,7 +171,7 @@ export const GoogleDriveSheetsModal: React.FC<GoogleDriveSheetsModalProps> = ({
         } catch (err: any) {
           setStatusMessage({
             type: 'error',
-            text: err?.message || 'Gagal membuat spreadsheet di Google Drive.',
+            text: getErrorMessage(err, 'Gagal membuat spreadsheet di Google Drive.'),
           });
         } finally {
           setIsProcessing(false);
@@ -209,7 +210,7 @@ export const GoogleDriveSheetsModal: React.FC<GoogleDriveSheetsModalProps> = ({
         } catch (err: any) {
           setStatusMessage({
             type: 'error',
-            text: err?.message || 'Gagal menyinkronkan data ke Google Sheet.',
+            text: getErrorMessage(err, 'Gagal menyinkronkan data ke Google Sheet.'),
           });
         } finally {
           setIsProcessing(false);
@@ -243,7 +244,7 @@ export const GoogleDriveSheetsModal: React.FC<GoogleDriveSheetsModalProps> = ({
         } catch (err: any) {
           setStatusMessage({
             type: 'error',
-            text: err?.message || 'Gagal mengunggah cadangan ke Google Drive.',
+            text: getErrorMessage(err, 'Gagal mengunggah cadangan ke Google Drive.'),
           });
         } finally {
           setIsProcessing(false);
@@ -284,7 +285,7 @@ export const GoogleDriveSheetsModal: React.FC<GoogleDriveSheetsModalProps> = ({
                 : 'bg-rose-50 text-rose-800 border border-rose-200'
             }`}
           >
-            <p className="font-semibold">{statusMessage.text}</p>
+            <p className="font-semibold">{getErrorMessage(statusMessage.text)}</p>
             {statusMessage.link && (
               <a
                 href={statusMessage.link}

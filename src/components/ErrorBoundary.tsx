@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { getErrorMessage } from '../lib/errorHelper';
 
 interface Props {
   children: ReactNode;
@@ -11,12 +12,15 @@ interface State {
   errorInfo: ErrorInfo | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null,
-    errorInfo: null,
-  };
+export class ErrorBoundary extends React.Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+    };
+  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error, errorInfo: null };
@@ -58,7 +62,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             {this.state.error && (
               <div className="p-3 bg-slate-100 rounded-xl text-left overflow-x-auto text-[11px] font-mono text-slate-700 max-h-28">
-                {this.state.error.message || String(this.state.error)}
+                {getErrorMessage(this.state.error)}
               </div>
             )}
 

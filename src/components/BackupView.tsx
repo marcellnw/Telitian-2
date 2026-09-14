@@ -23,6 +23,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { TelitianRecord } from '../types/record';
+import { getErrorMessage } from '../lib/errorHelper';
 import { formatRupiah, formatDateTimeJakarta } from '../lib/currency';
 
 interface BackupViewProps {
@@ -717,7 +718,7 @@ export const BackupView: React.FC<BackupViewProps> = ({
                     {syncGasResult.success ? 'Sinkronisasi Berhasil!' : 'Gagal Sinkronisasi'}
                   </p>
                   <p className="mt-1 text-[11px] opacity-90">
-                    {syncGasResult.message || syncGasResult.error}
+                    {getErrorMessage(syncGasResult.message || syncGasResult.error)}
                   </p>
                   {syncGasResult.pulled !== undefined && (
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-mono font-semibold text-emerald-800">
@@ -759,7 +760,7 @@ export const BackupView: React.FC<BackupViewProps> = ({
                       ? 'Koneksi Memerlukan Penyesuaian'
                       : 'Belum Dikonfigurasi'}
                   </p>
-                  <p className="mt-1 text-[11px] opacity-90">{gasStatusResult.message}</p>
+                  <p className="mt-1 text-[11px] opacity-90">{getErrorMessage(gasStatusResult.message)}</p>
 
                   {gasStatusResult.spreadsheetName && (
                     <div className="mt-2 inline-block px-2.5 py-1 rounded-lg bg-white/70 border border-emerald-300 font-semibold text-[11px] text-emerald-800">

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { TelitianRecord } from '../types/record';
 import { formatRupiah, unformatRupiah } from '../lib/currency';
+import { getErrorMessage } from '../lib/errorHelper';
 
 export interface SubmitRecordPayload {
   name: string;
@@ -178,7 +179,7 @@ export const InputForm: React.FC<InputFormProps> = ({
       {errorMessage && (
         <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-center gap-2.5 animate-fade-in">
           <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-          <span>{errorMessage}</span>
+          <span>{getErrorMessage(errorMessage)}</span>
         </div>
       )}
 

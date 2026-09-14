@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Lock, KeyRound, Loader2 } from 'lucide-react';
 import { setAdminToken } from '../lib/adminAuth';
+import { getErrorMessage } from '../lib/errorHelper';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         onLoginSuccess();
         onClose();
       } else {
-        setError(data.error || 'Password salah. Coba lagi.');
+        setError(getErrorMessage(data?.error, 'Password salah. Coba lagi.'));
       }
     } catch (err) {
       // Fallback for client side if testing offline
@@ -46,7 +47,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         onLoginSuccess();
         onClose();
       } else {
-        setError('Koneksi ke server gagal. Gunakan password default: adminhajatan');
+        setError(getErrorMessage(err, 'Koneksi ke server gagal. Gunakan password default: adminhajatan'));
       }
     } finally {
       setIsLoading(false);
@@ -101,7 +102,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-              {error}
+              {getErrorMessage(error)}
             </div>
           )}
 

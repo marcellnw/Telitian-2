@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Edit2, Loader2, Save, Baby, User } from 'lucide-react';
 import { TelitianRecord } from '../types/record';
 import { formatRupiah, unformatRupiah } from '../lib/currency';
+import { getErrorMessage } from '../lib/errorHelper';
 
 interface EditModalProps {
   record: TelitianRecord | null;
@@ -92,7 +93,7 @@ export const EditModal: React.FC<EditModalProps> = ({
         setError('Gagal memperbarui data.');
       }
     } catch (err) {
-      setError('Terjadi kesalahan saat menyimpan perubahan.');
+      setError(getErrorMessage(err, 'Terjadi kesalahan saat menyimpan perubahan.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -117,7 +118,7 @@ export const EditModal: React.FC<EditModalProps> = ({
 
         {error && (
           <div className="p-2.5 rounded-lg bg-rose-50 text-rose-800 text-xs font-semibold">
-            {error}
+            {getErrorMessage(error)}
           </div>
         )}
 

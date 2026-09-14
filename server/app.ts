@@ -1005,27 +1005,25 @@ app.delete(apiRoute('/api/records/:id'), requireAdmin, async (req, res) => {
     targetIndex = records.findIndex((r) => r.id.toLowerCase() === id.toLowerCase());
   }
 
-  if (targetIndex === -1) {
-    return res.status(404).json({ success: false, error: 'Data dengan ID tersebut tidak ditemukan' });
-  }
+  let target = targetIndex !== -1 ? records[targetIndex] : null;
 
-  const target = records[targetIndex];
+  if (target) {
+    try {
+      const deletedRecords = safeReadJson<any[]>('deleted-db.json', []);
+      deletedRecords.push({
+        ...target,
+        deletedAt: new Date().toISOString(),
+      });
+      safeWriteJson('deleted-db.json', deletedRecords);
+    } catch (_) {}
 
-  try {
-    const deletedRecords = safeReadJson<any[]>('deleted-db.json', []);
-    deletedRecords.push({
-      ...target,
-      deletedAt: new Date().toISOString(),
+    const filtered = records.filter((r) => r.id !== target!.id);
+    filtered.forEach((r, idx) => {
+      r.no = idx + 1;
     });
-    safeWriteJson('deleted-db.json', deletedRecords);
-  } catch (_) {}
-
-  const filtered = records.filter((r) => r.id !== target.id);
-  filtered.forEach((r, idx) => {
-    r.no = idx + 1;
-  });
-  updateActiveRecords(filtered, 'delete', target);
-  logServerActivity('Hapus Data', target.id, target.name, `Nominal: Rp ${target.amount.toLocaleString('id-ID')}`);
+    updateActiveRecords(filtered, 'delete', target);
+    logServerActivity('Hapus Data', target.id, target.name, `Nominal: Rp ${target.amount.toLocaleString('id-ID')}`);
+  }
 
   let gasDeleted = false;
   const gasUrl = getGasUrl(req);
@@ -1034,7 +1032,7 @@ app.delete(apiRoute('/api/records/:id'), requireAdmin, async (req, res) => {
       const gasRes = await callGasApi(
         'deleteData',
         {
-          id: target.id,
+          id: id,
           deletedBy: 'Operator Meja Telitian',
         },
         'POST',
@@ -1044,9 +1042,10 @@ app.delete(apiRoute('/api/records/:id'), requireAdmin, async (req, res) => {
     } catch (_) {}
   }
 
+  const targetName = target ? target.name : 'ID ' + id;
   return res.json({
     success: true,
-    message: `Data atas nama ${target.name} berhasil dihapus` + (gasDeleted ? ' dan dipindahkan ke sheet DATA_TERHAPUS.' : '.'),
+    message: `Data atas nama ${targetName} berhasil dihapus` + (gasDeleted ? ' dan dipindahkan ke sheet DATA_TERHAPUS.' : '.'),
     googleSheetsSynced: gasDeleted,
   });
 });

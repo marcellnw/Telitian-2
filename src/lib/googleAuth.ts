@@ -78,6 +78,15 @@ export const signInWithGoogle = async (): Promise<{
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error('Google Sign In Error:', error);
+    if (error?.code === 'auth/popup-closed-by-user') {
+      throw new Error('Jendela login Google ditutup sebelum proses selesai.');
+    } else if (error?.code === 'auth/cancelled-popup-request') {
+      throw new Error('Permintaan login dibatalkan karena ada proses login lain.');
+    } else if (error?.code === 'auth/unauthorized-domain') {
+      throw new Error('Domain aplikasi belum terdaftar di Firebase Console > Authentication > Settings > Authorized Domains. Tambahkan domain Vercel Anda di sana.');
+    } else if (error?.code === 'auth/popup-blocked') {
+      throw new Error('Popup masuk Google diblokir oleh browser. Harap izinkan popup untuk situs ini.');
+    }
     throw error;
   } finally {
     isSigningIn = false;
